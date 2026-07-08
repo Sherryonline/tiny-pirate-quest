@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tiny Pirate Quest</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main class="game-wrap">
+    <h1>Tiny Pirate Quest</h1>
+
+    <section class="hud" aria-label="Game information">
+      <div>Score: <span id="score">0</span>/10</div>
+      <div>Health: <span id="health">3</span></div>
+      <div>Status: <span id="status">Collect all 10 coins!</span></div>
+    </section>
+
+    <section id="gameArea" class="game-area" aria-label="Tiny Pirate Quest game area">
+      <div id="player" class="sprite">🏴‍☠️</div>
+      <div id="enemy" class="sprite">🦀</div>
+      <div id="chest" class="sprite">🧰</div>
+    </section>
+
+    <p class="help">Use the arrow keys or WASD to move. Collect coins, avoid the crab, then open the chest.</p>
+    <button id="restartButton" type="button">Restart Game</button>
+  </main>
+
+  <script src="script.js"></script>
+</body>
+</html>
