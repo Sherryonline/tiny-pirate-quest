@@ -13,6 +13,9 @@ const gameOverlay = document.getElementById("gameOverlay");
 const overlayTitle = document.getElementById("overlayTitle");
 const overlayMessage = document.getElementById("overlayMessage");
 const overlayRestartButton = document.getElementById("overlayRestartButton");
+const routePanel = document.getElementById("routePanel");
+const routeClue = document.getElementById("routeClue");
+const routeChoices = document.getElementById("routeChoices");
 
 const gameWidth = 600;
 const gameHeight = 400;
@@ -33,12 +36,18 @@ let mapFragments = 0;
 let enemyHitCooldown;
 let lastFrameTime = 0;
 let overlayAction = "restart";
+let routeQuestionShown = false;
+let routeUnlocked = false;
 
 const levels = [
   {
     name: "Coconut Island",
     className: "level-coconut",
     coinCount: 10,
+    clue: "The path follows the soft shapes that drift above the coconut trees.",
+    question: "Which island sign points to the next sea route?",
+    choices: ["Clouds", "Lava", "Fog"],
+    correctChoice: 0,
     enemies: [{ x: 280, y: 190, minX: 120, maxX: 445, speed: 120 }],
     lavaTraps: []
   },
@@ -46,6 +55,10 @@ const levels = [
     name: "Mist Island",
     className: "level-mist",
     coinCount: 12,
+    clue: "The hidden route appears where the gray veil rolls over the shore.",
+    question: "What should the pirate follow through Mist Island?",
+    choices: ["Coconut trees", "Fog", "Volcano smoke"],
+    correctChoice: 1,
     enemies: [
       { x: 160, y: 120, minX: 80, maxX: 300, speed: 135 },
       { x: 430, y: 255, minX: 310, maxX: 520, speed: 150 }
@@ -56,6 +69,10 @@ const levels = [
     name: "Volcano Island",
     className: "level-volcano",
     coinCount: 15,
+    clue: "The final route glows near the mountain that breathes smoke.",
+    question: "What marks the final treasure route?",
+    choices: ["Ocean waves", "Coconut leaves", "Volcano smoke"],
+    correctChoice: 2,
     enemies: [
       { x: 145, y: 110, minX: 60, maxX: 285, speed: 150 },
       { x: 420, y: 265, minX: 300, maxX: 525, speed: 165 }
@@ -105,10 +122,14 @@ function startLevel() {
   gameOver = false;
   enemyHitCooldown = 0;
   overlayAction = "restart";
+  routeQuestionShown = false;
+  routeUnlocked = false;
 
   playerElement.classList.remove("damaged");
   gameArea.classList.remove("shake");
   chestElement.classList.remove("open");
+  chestElement.classList.add("hidden");
+  routePanel.classList.add("hidden");
   gameOverlay.classList.add("hidden");
   chestElement.style.left = "535px";
   chestElement.style.top = "335px";
@@ -267,7 +288,12 @@ function checkCollisions(deltaTime) {
     if (!coin.collected && isTouching(player, coin)) {
       coin.collected = true;
       score += 1;
-      updateHud(score === level.coinCount ? "All coins collected! Open the chest!" : "Nice coin grab!");
+      if (score === level.coinCount) {
+        updateHud("All coins collected! Read the island clue.");
+        showRouteQuestion(level);
+      } else {
+        updateHud("Nice coin grab!");
+      }
     }
   });
 
@@ -290,11 +316,50 @@ function checkCollisions(deltaTime) {
   }
 
   const chest = { x: 535, y: 335 };
-  if (score === level.coinCount && isTouching(player, chest)) {
-    chestElement.classList.add("open");
+  if (routeUnlocked && isTouching(player, chest)) {
     completeLevel();
-  } else if (score < level.coinCount && isTouching(player, chest)) {
-    updateHud("The chest is locked. Collect every coin first!");
+  }
+}
+
+function showRouteQuestion(level) {
+  if (routeQuestionShown) {
+    return;
+  }
+
+  routeQuestionShown = true;
+  routeClue.textContent = `${level.clue} ${level.question}`;
+  routeChoices.innerHTML = "";
+
+  level.choices.forEach((choice, index) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.textContent = choice;
+    button.addEventListener("click", () => answerRouteQuestion(index));
+    routeChoices.appendChild(button);
+  });
+
+  routePanel.classList.remove("hidden");
+}
+
+function answerRouteQuestion(choiceIndex) {
+  const level = levels[currentLevelIndex];
+
+  if (choiceIndex === level.correctChoice) {
+    routeUnlocked = true;
+    routePanel.classList.add("hidden");
+    chestElement.classList.remove("hidden");
+    chestElement.classList.add("open");
+    updateHud("Correct! The sea route is revealed.");
+    completeLevel();
+    return;
+  }
+
+  health -= 1;
+  updateHud("Wrong answer! The sea path is still hidden.");
+
+  if (health <= 0) {
+    routePanel.classList.add("hidden");
+    endGame("Game Over", "Wrong answer! The sea path is still hidden.");
   }
 }
 
@@ -391,11 +456,15 @@ function handleOverlayButton() {
   }
 }
 
+function isRouteQuestionOpen() {
+  return !routePanel.classList.contains("hidden");
+}
+
 function gameLoop(currentTime) {
   const deltaTime = lastFrameTime ? (currentTime - lastFrameTime) / 1000 : 0;
   lastFrameTime = currentTime;
 
-  if (!gameOver) {
+  if (!gameOver && !isRouteQuestionOpen()) {
     movePlayer(deltaTime);
     moveEnemies(deltaTime);
     checkCollisions(deltaTime);

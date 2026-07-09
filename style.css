@@ -283,8 +283,52 @@ h1 {
   filter: grayscale(1);
 }
 
+#chest.hidden {
+  display: none;
+}
+
 #chest.open {
   filter: none;
+}
+
+.route-panel {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  z-index: 9;
+  width: 380px;
+  max-width: calc(100% - 40px);
+  padding: 16px;
+  text-align: center;
+  color: #24311f;
+  background: #fff3c4;
+  border: 3px solid #8b5a2b;
+  border-radius: 8px;
+  box-shadow: 0 6px 0 rgba(0, 0, 0, 0.18);
+  transform: translate(-50%, -50%);
+}
+
+.route-panel.hidden {
+  display: none;
+}
+
+.route-title {
+  margin-bottom: 8px;
+  font-size: 22px;
+  font-weight: bold;
+}
+
+.route-panel p {
+  margin: 0 0 12px;
+}
+
+.route-choices {
+  display: grid;
+  gap: 8px;
+}
+
+.route-choices button {
+  width: 100%;
 }
 
 .game-overlay {
