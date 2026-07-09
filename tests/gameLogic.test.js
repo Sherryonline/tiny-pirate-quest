@@ -134,7 +134,8 @@ test("boss attack uses directional attack area", () => {
   const player = { x: 100, y: 100 };
   const options = {
     spriteSize: 34,
-    range: 80,
+    range: 100,
+    thickness: 70,
     damage: 1,
     cooldown: 0,
     hitCooldown: 0.6,
@@ -143,31 +144,31 @@ test("boss attack uses directional attack area", () => {
 
   assert.deepEqual(GameLogic.getAttackArea(player, "right", options), {
     x: 134,
-    y: 100,
-    width: 80,
-    height: 34
+    y: 82,
+    width: 100,
+    height: 70
   });
   assert.deepEqual(GameLogic.getAttackArea(player, "left", options), {
-    x: 20,
-    y: 100,
-    width: 80,
-    height: 34
+    x: 0,
+    y: 82,
+    width: 100,
+    height: 70
   });
   assert.deepEqual(GameLogic.getAttackArea(player, "up", options), {
-    x: 100,
-    y: 20,
-    width: 34,
-    height: 80
+    x: 82,
+    y: 0,
+    width: 70,
+    height: 100
   });
   assert.deepEqual(GameLogic.getAttackArea(player, "down", options), {
-    x: 100,
+    x: 82,
     y: 134,
-    width: 34,
-    height: 80
+    width: 70,
+    height: 100
   });
 
-  assert.equal(GameLogic.attackBoss(player, { x: 150, y: 105, hp: 2 }, { ...options, direction: "right" }).reason, "hit");
+  assert.equal(GameLogic.attackBoss(player, { x: 150, y: 55, hp: 2 }, { ...options, direction: "right" }).reason, "hit");
   assert.equal(GameLogic.attackBoss(player, { x: 150, y: 105, hp: 2 }, { ...options, direction: "left" }).reason, "out-of-range");
-  assert.equal(GameLogic.attackBoss(player, { x: 105, y: 50, hp: 2 }, { ...options, direction: "up" }).reason, "hit");
-  assert.equal(GameLogic.attackBoss(player, { x: 105, y: 160, hp: 2 }, { ...options, direction: "down" }).reason, "hit");
+  assert.equal(GameLogic.attackBoss(player, { x: 55, y: 50, hp: 2 }, { ...options, direction: "up" }).reason, "hit");
+  assert.equal(GameLogic.attackBoss(player, { x: 145, y: 160, hp: 2 }, { ...options, direction: "down" }).reason, "hit");
 });

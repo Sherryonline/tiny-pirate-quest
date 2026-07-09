@@ -33,8 +33,10 @@ const gameHeight = 400;
 const spriteSize = 34;
 const basePlayerSpeed = 220;
 const baseMaxHealth = 3;
-const bossAttackRange = 80;
-const bossStunDuration = 0.5;
+const bossAttackRange = 100;
+const bossAttackThickness = 70;
+const bossLockOnRange = 130;
+const bossStunDuration = 0.8;
 const bossChaseDuration = 3;
 const bossRestDuration = 1;
 const dashDistance = 90;
@@ -84,7 +86,7 @@ const levelConfig = {
       question: "Which island sign points to the next sea route?",
       choices: ["Clouds", "Lava", "Fog"],
       correctChoice: 0,
-      boss: { name: "Giant Crab", icon: "🦀", x: 280, y: 120, speed: 115, hp: 3 },
+      boss: { name: "Giant Crab", icon: "🦀", x: 280, y: 120, speed: 95, hp: 3 },
       enemies: [{ x: 280, y: 190, minX: 120, maxX: 445, speed: 120 }],
       lavaTraps: []
     },
@@ -96,7 +98,7 @@ const levelConfig = {
       question: "What should the pirate follow through Mist Island?",
       choices: ["Coconut trees", "Fog", "Volcano smoke"],
       correctChoice: 1,
-      boss: { name: "Fog Ghost", icon: "👻", x: 300, y: 90, speed: 130, hp: 5 },
+      boss: { name: "Fog Ghost", icon: "👻", x: 300, y: 90, speed: 105, hp: 5 },
       enemies: [
         { x: 160, y: 120, minX: 80, maxX: 300, speed: 135 },
         { x: 430, y: 255, minX: 310, maxX: 520, speed: 150 }
@@ -111,7 +113,7 @@ const levelConfig = {
       question: "What marks the final treasure route?",
       choices: ["Ocean waves", "Coconut leaves", "Volcano smoke"],
       correctChoice: 2,
-      boss: { name: "Lava Beast", icon: "🔥", x: 300, y: 90, speed: 145, hp: 7 },
+      boss: { name: "Lava Beast", icon: "🔥", x: 300, y: 90, speed: 120, hp: 7 },
       enemies: [
         { x: 145, y: 110, minX: 60, maxX: 285, speed: 150 },
         { x: 420, y: 265, minX: 300, maxX: 525, speed: 165 }
@@ -553,6 +555,35 @@ function updateLastDirection(key) {
   }
 }
 
+function getDirectionToBoss() {
+  if (!bossActive || !boss) {
+    return lastDirection;
+  }
+
+  const playerCenter = getSpriteCenter(player);
+  const bossCenter = getSpriteCenter(boss);
+  const dx = bossCenter.x - playerCenter.x;
+  const dy = bossCenter.y - playerCenter.y;
+  const distance = Math.hypot(dx, dy);
+
+  if (distance > bossLockOnRange) {
+    return lastDirection;
+  }
+
+  if (Math.abs(dx) >= Math.abs(dy)) {
+    return dx < 0 ? "left" : "right";
+  }
+
+  return dy < 0 ? "up" : "down";
+}
+
+function getSpriteCenter(sprite) {
+  return {
+    x: sprite.x + spriteSize / 2,
+    y: sprite.y + spriteSize / 2
+  };
+}
+
 function moveEnemies(deltaTime) {
   enemies.forEach((enemy) => {
     enemy.x += enemy.direction * enemy.speed * deltaTime;
@@ -722,6 +753,10 @@ function moveBoss(deltaTime) {
 }
 
 function checkBossCollision() {
+  if (!canBossDamagePlayer()) {
+    return;
+  }
+
   if (enemyHitCooldown === 0 && isTouching(player, boss)) {
     takeDamage(`${boss.name} hit you! Keep dodging.`, `${boss.name} ended your quest.`, {
       knockbackFrom: boss,
@@ -731,19 +766,26 @@ function checkBossCollision() {
   }
 }
 
+function canBossDamagePlayer() {
+  return boss && boss.phase === "chase" && boss.stunTimer === 0;
+}
+
 function attackBoss() {
   if (!bossActive || !boss || gameOver) {
     return;
   }
 
-  const attackArea = GameLogic.getAttackArea(player, lastDirection, {
+  const attackDirection = getDirectionToBoss();
+  const attackArea = GameLogic.getAttackArea(player, attackDirection, {
     spriteSize,
-    range: bossAttackRange
+    range: bossAttackRange,
+    thickness: bossAttackThickness
   });
   const result = GameLogic.attackBoss(player, boss, {
     spriteSize,
     range: bossAttackRange,
-    direction: lastDirection,
+    thickness: bossAttackThickness,
+    direction: attackDirection,
     attackArea,
     damage: 1,
     cooldown: attackCooldown,
@@ -757,7 +799,7 @@ function attackBoss() {
     return;
   }
 
-  showSlashEffect(attackArea);
+  showSlashEffect(attackArea, attackDirection);
 
   if (!result.hit) {
     updateHud("Move closer to attack the boss!");
@@ -817,10 +859,10 @@ function getBossDefeatMessage(bossName) {
   return `${bossName} defeated! Read the island clue.`;
 }
 
-function showSlashEffect(attackArea) {
+function showSlashEffect(attackArea, direction) {
   const slash = document.createElement("div");
 
-  slash.className = `slash-effect ${lastDirection}`;
+  slash.className = `slash-effect ${direction}`;
   slash.textContent = "⚔";
   slash.style.left = `${keepInside(attackArea.x + attackArea.width / 2 - 17, gameWidth - 34)}px`;
   slash.style.top = `${keepInside(attackArea.y + attackArea.height / 2 - 17, gameHeight - 34)}px`;

@@ -115,39 +115,41 @@
   function getAttackArea(player, direction, options) {
     const size = options.spriteSize;
     const range = options.range;
+    const thickness = options.thickness || size;
+    const centerOffset = (size - thickness) / 2;
 
     if (direction === "left") {
       return {
         x: player.x - range,
-        y: player.y,
+        y: player.y + centerOffset,
         width: range,
-        height: size
+        height: thickness
       };
     }
 
     if (direction === "up") {
       return {
-        x: player.x,
+        x: player.x + centerOffset,
         y: player.y - range,
-        width: size,
+        width: thickness,
         height: range
       };
     }
 
     if (direction === "down") {
       return {
-        x: player.x,
+        x: player.x + centerOffset,
         y: player.y + size,
-        width: size,
+        width: thickness,
         height: range
       };
     }
 
     return {
       x: player.x + size,
-      y: player.y,
+      y: player.y + centerOffset,
       width: range,
-      height: size
+      height: thickness
     };
   }
 
