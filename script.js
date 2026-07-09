@@ -9,6 +9,7 @@ const totalCoinsElement = document.getElementById("totalCoins");
 const healthElement = document.getElementById("health");
 const fragmentsElement = document.getElementById("fragments");
 const crewElement = document.getElementById("crew");
+const activeFruitElement = document.getElementById("activeFruit");
 const statusElement = document.getElementById("status");
 const restartButton = document.getElementById("restartButton");
 const gameOverlay = document.getElementById("gameOverlay");
@@ -38,6 +39,7 @@ let playerY;
 let enemies;
 let lavaTraps;
 let boss;
+let mysteryFruit;
 let coins;
 let score;
 let health;
@@ -56,6 +58,9 @@ let routeUnlocked = false;
 let bossActive = false;
 let bossTimer = 0;
 let bossEventStarted = false;
+let activePowerUp = null;
+let powerUpTimer = 0;
+let shieldCharges = 0;
 
 const levelConfig = {
   levels: [
@@ -138,6 +143,18 @@ const shipUpgrades = [
   }
 ];
 
+const mysteryFruits = [
+  { id: "wind", name: "Wind Fruit", icon: "🍃" },
+  { id: "magnet", name: "Magnet Fruit", icon: "🧲" },
+  { id: "shield", name: "Shield Fruit", icon: "🛡️" }
+];
+
+const fruitPositions = [
+  { x: 118, y: 150 },
+  { x: 452, y: 132 },
+  { x: 318, y: 265 }
+];
+
 const coinPositions = [
   { x: 80, y: 70 },
   { x: 185, y: 45 },
@@ -184,6 +201,9 @@ function startLevel() {
   bossActive = false;
   bossTimer = 0;
   bossEventStarted = false;
+  activePowerUp = null;
+  powerUpTimer = 0;
+  shieldCharges = 0;
 
   playerElement.classList.remove("damaged");
   gameArea.classList.remove("shake");
@@ -194,6 +214,7 @@ function startLevel() {
   upgradeMenu.classList.add("hidden");
   gameOverlay.classList.add("hidden");
   removeBoss();
+  removeMysteryFruit();
   chestElement.style.left = "535px";
   chestElement.style.top = "335px";
 
@@ -201,6 +222,7 @@ function startLevel() {
   createCoins(level.coinCount);
   createEnemies(level.enemies);
   createLavaTraps(level.lavaTraps);
+  createMysteryFruit();
   updateHud(`Collect all ${level.coinCount} coins!`);
   drawSprites();
 }
@@ -266,6 +288,34 @@ function createLavaTraps(trapSettings) {
   });
 }
 
+function createMysteryFruit() {
+  removeMysteryFruit();
+
+  const fruit = mysteryFruits[Math.floor(Math.random() * mysteryFruits.length)];
+  const position = fruitPositions[currentLevelIndex] || fruitPositions[0];
+  const element = document.createElement("div");
+
+  element.className = "sprite fruit";
+  element.textContent = fruit.icon;
+  gameArea.appendChild(element);
+
+  mysteryFruit = {
+    ...fruit,
+    x: position.x,
+    y: position.y,
+    collected: false,
+    element
+  };
+}
+
+function removeMysteryFruit() {
+  if (mysteryFruit && mysteryFruit.element) {
+    mysteryFruit.element.remove();
+  }
+
+  mysteryFruit = null;
+}
+
 function updateHud(message) {
   const level = levels[currentLevelIndex];
 
@@ -276,6 +326,7 @@ function updateHud(message) {
   healthElement.textContent = health;
   fragmentsElement.textContent = mapFragments;
   crewElement.textContent = crew.length > 0 ? crew.join(", ") : "None";
+  activeFruitElement.textContent = getActiveFruitText();
   statusElement.textContent = message;
 }
 
@@ -298,6 +349,12 @@ function drawSprites() {
     lava.element.style.left = `${lava.x}px`;
     lava.element.style.top = `${lava.y}px`;
   });
+
+  if (mysteryFruit) {
+    mysteryFruit.element.style.left = `${mysteryFruit.x}px`;
+    mysteryFruit.element.style.top = `${mysteryFruit.y}px`;
+    mysteryFruit.element.style.display = mysteryFruit.collected ? "none" : "grid";
+  }
 
   if (bossActive && boss) {
     boss.element.style.left = `${boss.x}px`;
@@ -353,6 +410,10 @@ function keepInside(value, max) {
 
 function checkCollisions(deltaTime) {
   const level = levels[currentLevelIndex];
+
+  if (mysteryFruit && !mysteryFruit.collected && isTouching(player, mysteryFruit)) {
+    activateMysteryFruit(mysteryFruit);
+  }
 
   coins.forEach((coin) => {
     if (!coin.collected && isTouching(player, coin)) {
@@ -472,7 +533,85 @@ function finishBossEvent() {
 }
 
 function getPlayerSpeed() {
-  return purchasedUpgrades.includes("strongSail") ? basePlayerSpeed + 45 : basePlayerSpeed;
+  let speed = purchasedUpgrades.includes("strongSail") ? basePlayerSpeed + 45 : basePlayerSpeed;
+
+  if (activePowerUp && activePowerUp.id === "wind") {
+    speed += 70;
+  }
+
+  return speed;
+}
+
+function activateMysteryFruit(fruit) {
+  fruit.collected = true;
+  activePowerUp = fruit;
+
+  if (fruit.id === "shield") {
+    shieldCharges = 1;
+    powerUpTimer = 0;
+    updateHud("Shield Fruit activated! It will block one hit.");
+    return;
+  }
+
+  powerUpTimer = 5;
+  updateHud(`${fruit.name} activated for 5 seconds!`);
+}
+
+function updatePowerUp(deltaTime) {
+  if (!activePowerUp) {
+    return;
+  }
+
+  if (activePowerUp.id === "magnet") {
+    pullNearbyCoins(deltaTime);
+  }
+
+  if (activePowerUp.id === "shield") {
+    return;
+  }
+
+  powerUpTimer = Math.max(0, powerUpTimer - deltaTime);
+
+  if (powerUpTimer === 0) {
+    expirePowerUp();
+  }
+}
+
+function pullNearbyCoins(deltaTime) {
+  coins.forEach((coin) => {
+    if (coin.collected) {
+      return;
+    }
+
+    const dx = player.x - coin.x;
+    const dy = player.y - coin.y;
+    const distance = Math.hypot(dx, dy);
+
+    if (distance > 150 || distance === 0) {
+      return;
+    }
+
+    coin.x += (dx / distance) * 180 * deltaTime;
+    coin.y += (dy / distance) * 180 * deltaTime;
+  });
+}
+
+function expirePowerUp() {
+  activePowerUp = null;
+  powerUpTimer = 0;
+  updateHud("Mystery Fruit effect faded.");
+}
+
+function getActiveFruitText() {
+  if (!activePowerUp) {
+    return "None";
+  }
+
+  if (activePowerUp.id === "shield") {
+    return shieldCharges > 0 ? "Shield Fruit" : "None";
+  }
+
+  return `${activePowerUp.name} (${Math.ceil(powerUpTimer)}s)`;
 }
 
 function getCoinStatusMessage(level) {
@@ -526,6 +665,13 @@ function answerRouteQuestion(choiceIndex) {
 }
 
 function takeDamage(statusMessage, gameOverMessage, options = {}) {
+  if (shieldCharges > 0) {
+    shieldCharges -= 1;
+    activePowerUp = null;
+    updateHud("Shield Fruit blocked the hit!");
+    return;
+  }
+
   health -= 1;
   enemyHitCooldown = 1;
 
@@ -838,6 +984,7 @@ function gameLoop(currentTime) {
   if (!gameOver && !isRouteQuestionOpen() && !isWorldMapOpen() && !isUpgradeMenuOpen()) {
     movePlayer(deltaTime);
     moveEnemies(deltaTime);
+    updatePowerUp(deltaTime);
     checkCollisions(deltaTime);
     updateBoss(deltaTime);
     drawSprites();

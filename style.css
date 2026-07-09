@@ -25,7 +25,7 @@ h1 {
 
 .hud {
   display: grid;
-  grid-template-columns: 1.2fr 0.6fr 0.7fr 0.6fr 1fr 0.9fr 1.6fr;
+  grid-template-columns: 1.2fr 0.6fr 0.7fr 0.6fr 1fr 0.9fr 0.8fr 1.6fr;
   gap: 10px;
   margin-bottom: 12px;
   padding: 10px;
@@ -291,6 +291,13 @@ h1 {
   font-size: 26px;
   animation: lava-pulse 0.9s ease-in-out infinite alternate;
   filter: drop-shadow(0 0 6px #ff5b24);
+}
+
+.fruit {
+  z-index: 3;
+  font-size: 26px;
+  animation: fruit-bob 1.2s ease-in-out infinite alternate;
+  filter: drop-shadow(0 0 5px rgba(255, 255, 255, 0.75));
 }
 
 #player {
@@ -600,6 +607,15 @@ button:hover {
   }
   to {
     transform: scale(1.12);
+  }
+}
+
+@keyframes fruit-bob {
+  from {
+    transform: translateY(0) scale(1);
+  }
+  to {
+    transform: translateY(-5px) scale(1.08);
   }
 }
 
