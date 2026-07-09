@@ -1,4 +1,5 @@
 const gameArea = document.getElementById("gameArea");
+const gameWrap = document.querySelector(".game-wrap");
 const playerElement = document.getElementById("player");
 const enemyElement = document.getElementById("enemy");
 const chestElement = document.getElementById("chest");
@@ -326,7 +327,12 @@ function startGame() {
 function startAdventure() {
   introActive = false;
   introOverlay.classList.add("hidden");
+  syncIntroUiVisibility();
   updateHud("Collect coins to begin your quest.");
+}
+
+function syncIntroUiVisibility() {
+  gameWrap.classList.toggle("pre-start", introActive);
 }
 
 function startLevel() {
@@ -587,6 +593,7 @@ function removeGrandTreasure() {
 function updateHud(message) {
   const level = levels[currentLevelIndex];
 
+  syncIntroUiVisibility();
   levelElement.textContent = finalIslandActive ? "Final - Treasure Island" : `${currentLevelIndex + 1} - ${level.name}`;
   scoreElement.textContent = score;
   coinGoalElement.textContent = finalIslandActive ? 0 : level.coinCount;

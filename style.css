@@ -13,7 +13,7 @@ body {
 }
 
 .game-wrap {
-  width: 780px;
+  width: min(780px, 100%);
   padding: 20px;
   text-align: center;
 }
@@ -24,15 +24,28 @@ h1 {
 }
 
 .hud {
-  display: grid;
-  grid-template-columns: 1.2fr 0.8fr 0.6fr 0.7fr 1fr 0.9fr 0.8fr 1.6fr;
-  gap: 10px;
-  margin-bottom: 12px;
-  padding: 10px;
+  width: 720px;
+  max-width: 100%;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 8px 14px;
+  margin: 0 auto 8px;
+  padding: 8px 10px;
+  font-size: 14px;
   font-weight: bold;
   background: #f7e7a8;
-  border: 3px solid #8b5a2b;
+  border: 2px solid #8b5a2b;
   border-radius: 8px;
+}
+
+.hud-item {
+  white-space: nowrap;
+}
+
+.hud-health {
+  min-width: 72px;
 }
 
 .heart-health {
@@ -41,16 +54,26 @@ h1 {
   white-space: nowrap;
 }
 
+.status-fallback {
+  display: none;
+}
+
+.quest-fragments-fallback {
+  display: none;
+}
+
 .quest-panel {
+  width: 720px;
+  max-width: 100%;
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 8px;
-  margin-bottom: 12px;
-  padding: 10px;
+  gap: 7px 10px;
+  margin: 0 auto 10px;
+  padding: 9px 10px;
   text-align: left;
   color: #24311f;
   background: #fff3c4;
-  border: 3px solid #8b5a2b;
+  border: 2px solid #8b5a2b;
   border-radius: 8px;
 }
 
@@ -64,8 +87,33 @@ h1 {
 }
 
 .quest-hint {
-  grid-column: span 2;
+  grid-column: span 4;
   min-width: 0;
+}
+
+.pre-start .hud,
+.pre-start .quest-panel,
+.pre-start .battle-panel {
+  display: none;
+}
+
+@media (max-width: 760px) {
+  .game-wrap {
+    padding: 12px;
+  }
+
+  .hud {
+    justify-content: flex-start;
+    font-size: 13px;
+  }
+
+  .quest-panel {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .quest-hint {
+    grid-column: span 2;
+  }
 }
 
 .game-area {

@@ -7,18 +7,20 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <main class="game-wrap">
+  <main class="game-wrap pre-start">
     <h1>Tiny Pirate Quest</h1>
 
     <section class="hud" aria-label="Game information">
-      <div>Level: <span id="level">1 - Coconut Island</span></div>
-      <div>Health: <span id="heartHealth" class="heart-health">---</span></div>
-      <div>Score: <span id="score">0</span>/<span id="coinGoal">10</span></div>
-      <div>Wallet: <span id="totalCoins">0</span></div>
-      <div>Map Fragments: <span id="fragments">0</span>/3</div>
-      <div>Crew: <span id="crew">None</span></div>
-      <div>Fruit: <span id="activeFruit">None</span></div>
-      <div>Status: <span id="status">Collect all 10 coins!</span></div>
+      <div class="hud-item hud-health"><span id="heartHealth" class="heart-health">---</span></div>
+      <div class="hud-item">🪙 Wallet: <span id="totalCoins">0</span></div>
+      <div class="hud-item">🗺️ Fragments: <span id="fragments">0</span>/3</div>
+      <div class="hud-item">👥 Crew: <span id="crew">None</span></div>
+      <div class="hud-item">🍃 Fruit: <span id="activeFruit">None</span></div>
+      <div class="status-fallback" aria-live="polite">
+        <span id="level">1 - Coconut Island</span>
+        <span id="score">0</span>/<span id="coinGoal">10</span>
+        <span id="status">Collect all 10 coins!</span>
+      </div>
     </section>
 
     <section class="quest-panel" aria-label="Quest information">
@@ -34,7 +36,7 @@
         <span class="panel-label">Coins</span>
         <strong><span id="questCoins">0</span>/<span id="questCoinGoal">10</span></strong>
       </div>
-      <div>
+      <div class="quest-fragments-fallback">
         <span class="panel-label">Fragments</span>
         <strong id="questFragments">0/3</strong>
       </div>
