@@ -7,6 +7,7 @@ const scoreElement = document.getElementById("score");
 const coinGoalElement = document.getElementById("coinGoal");
 const healthElement = document.getElementById("health");
 const fragmentsElement = document.getElementById("fragments");
+const crewElement = document.getElementById("crew");
 const statusElement = document.getElementById("status");
 const restartButton = document.getElementById("restartButton");
 const gameOverlay = document.getElementById("gameOverlay");
@@ -36,6 +37,7 @@ let health;
 let gameOver;
 let currentLevelIndex = 0;
 let mapFragments = 0;
+let crew = [];
 let enemyHitCooldown;
 let lastFrameTime = 0;
 let overlayAction = "restart";
@@ -122,6 +124,7 @@ const keys = {};
 function startGame() {
   currentLevelIndex = 0;
   mapFragments = 0;
+  crew = [];
   startLevel();
 }
 
@@ -226,6 +229,7 @@ function updateHud(message) {
   coinGoalElement.textContent = level.coinCount;
   healthElement.textContent = health;
   fragmentsElement.textContent = mapFragments;
+  crewElement.textContent = crew.length > 0 ? crew.join(", ") : "None";
   statusElement.textContent = message;
 }
 
@@ -427,10 +431,48 @@ function shakeGameArea() {
 }
 
 function completeLevel() {
+  const completedLevelName = levels[currentLevelIndex].name;
+  const crewMessage = unlockCrewForIsland(completedLevelName);
+  const cookMessage = applyCookEffect();
+
   mapFragments += 1;
   gameOver = true;
-  updateHud(`Sea Map Fragment found on ${levels[currentLevelIndex].name}!`);
+  updateHud([
+    `Sea Map Fragment found on ${completedLevelName}!`,
+    crewMessage,
+    cookMessage
+  ].filter(Boolean).join(" "));
   showWorldMap();
+}
+
+function unlockCrewForIsland(islandName) {
+  if (islandName === "Coconut Island") {
+    return addCrewMember("Navigator");
+  }
+
+  if (islandName === "Mist Island") {
+    return addCrewMember("Cook");
+  }
+
+  return "";
+}
+
+function addCrewMember(memberName) {
+  if (crew.includes(memberName)) {
+    return "";
+  }
+
+  crew.push(memberName);
+  return `${memberName} joined your crew.`;
+}
+
+function applyCookEffect() {
+  if (!crew.includes("Cook") || health >= 3) {
+    return "";
+  }
+
+  health += 1;
+  return "Cook restored 1 health.";
 }
 
 function showWorldMap() {
@@ -438,7 +480,7 @@ function showWorldMap() {
 
   worldMapMessage.textContent = mapFragments === 3
     ? "All map fragments collected. The path to Treasure Island is revealed!"
-    : "A new route is unlocked. Choose the next island.";
+    : getWorldMapMessage();
   worldMapIslands.innerHTML = "";
 
   worldMapRoute.forEach((island, index) => {
@@ -465,6 +507,27 @@ function showWorldMap() {
   });
 
   worldMap.classList.remove("hidden");
+}
+
+function getWorldMapMessage() {
+  const baseMessage = "A new route is unlocked. Choose the next island.";
+  const hint = getNavigatorHint();
+
+  return hint ? `${baseMessage} Navigator hint: ${hint}` : baseMessage;
+}
+
+function getNavigatorHint() {
+  if (!crew.includes("Navigator")) {
+    return "";
+  }
+
+  const nextIsland = worldMapRoute[Math.min(mapFragments, worldMapRoute.length - 1)];
+
+  if (!nextIsland || nextIsland.name === "Treasure Island") {
+    return "The final route shines beyond the last island.";
+  }
+
+  return `Sail toward ${nextIsland.name}.`;
 }
 
 function getMapIslandStatus(index, isCompleted, isUnlocked, isCurrent) {
