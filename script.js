@@ -6,11 +6,11 @@ const levelElement = document.getElementById("level");
 const scoreElement = document.getElementById("score");
 const coinGoalElement = document.getElementById("coinGoal");
 const totalCoinsElement = document.getElementById("totalCoins");
-const healthElement = document.getElementById("health");
 const fragmentsElement = document.getElementById("fragments");
 const crewElement = document.getElementById("crew");
 const activeFruitElement = document.getElementById("activeFruit");
-const bossHpElement = document.getElementById("bossHp");
+const playerHpLabel = document.getElementById("playerHpLabel");
+const bossHpLabel = document.getElementById("bossHpLabel");
 const statusElement = document.getElementById("status");
 const restartButton = document.getElementById("restartButton");
 const gameOverlay = document.getElementById("gameOverlay");
@@ -64,6 +64,7 @@ let activePowerUp = null;
 let powerUpTimer = 0;
 let shieldCharges = 0;
 let finalIslandActive = false;
+let bossDefeatToken = 0;
 
 const levelConfig = {
   levels: [
@@ -204,6 +205,7 @@ function startLevel() {
   routeUnlocked = false;
   bossActive = false;
   bossEventStarted = false;
+  bossDefeatToken += 1;
   attackCooldown = 0;
   activePowerUp = null;
   powerUpTimer = 0;
@@ -333,6 +335,7 @@ function startFinalTreasureIsland() {
   enemyHitCooldown = 0;
   bossActive = false;
   bossEventStarted = false;
+  bossDefeatToken += 1;
   attackCooldown = 0;
   routePanel.classList.add("hidden");
   worldMap.classList.add("hidden");
@@ -386,12 +389,11 @@ function updateHud(message) {
   scoreElement.textContent = score;
   coinGoalElement.textContent = finalIslandActive ? 0 : level.coinCount;
   totalCoinsElement.textContent = totalCoins;
-  healthElement.textContent = health;
   fragmentsElement.textContent = mapFragments;
   crewElement.textContent = crew.length > 0 ? crew.join(", ") : "None";
   activeFruitElement.textContent = getActiveFruitText();
-  bossHpElement.textContent = bossActive && boss ? `${boss.hp}/${boss.maxHp}` : "None";
   statusElement.textContent = message;
+  updateHpLabels();
 }
 
 function drawSprites() {
@@ -420,7 +422,7 @@ function drawSprites() {
     mysteryFruit.element.style.display = mysteryFruit.collected ? "none" : "grid";
   }
 
-  if (bossActive && boss) {
+  if (boss) {
     boss.element.style.left = `${boss.x}px`;
     boss.element.style.top = `${boss.y}px`;
   }
@@ -429,6 +431,24 @@ function drawSprites() {
     grandTreasure.element.style.left = `${grandTreasure.x}px`;
     grandTreasure.element.style.top = `${grandTreasure.y}px`;
   }
+
+  updateHpLabels();
+}
+
+function updateHpLabels() {
+  playerHpLabel.textContent = `HP: ${health}`;
+  playerHpLabel.style.left = `${keepInside(player.x - 7, gameWidth - 48)}px`;
+  playerHpLabel.style.top = `${keepInside(player.y + spriteSize + 2, gameHeight - 16)}px`;
+
+  if (bossActive && boss) {
+    bossHpLabel.textContent = `Boss HP: ${boss.hp}`;
+    bossHpLabel.style.left = `${keepInside(boss.x - 15, gameWidth - 72)}px`;
+    bossHpLabel.style.top = `${keepInside(boss.y + 44, gameHeight - 16)}px`;
+    bossHpLabel.classList.remove("hidden");
+    return;
+  }
+
+  bossHpLabel.classList.add("hidden");
 }
 
 function movePlayer(deltaTime) {
@@ -559,6 +579,7 @@ function removeBoss() {
   }
 
   boss = null;
+  bossHpLabel.classList.add("hidden");
 }
 
 function updateBoss(deltaTime) {
@@ -589,7 +610,8 @@ function checkBossCollision() {
   if (enemyHitCooldown === 0 && isTouching(player, boss)) {
     takeDamage(`${boss.name} hit you! Keep dodging.`, `${boss.name} ended your quest.`, {
       knockbackFrom: boss,
-      flash: true
+      flash: true,
+      playerDamageText: true
     });
   }
 }
@@ -614,12 +636,16 @@ function attackBoss() {
     return;
   }
 
+  showSlashEffect();
+
   if (!result.hit) {
-    updateHud("Too far from the boss to attack!");
+    updateHud("Move closer to attack the boss!");
     return;
   }
 
   boss.hp = result.bossHp;
+  playBossHitEffect();
+  showFloatingText("-1 HP", boss.x + 5, boss.y - 10, "damage");
   updateHud(`${boss.name} hit! Boss HP: ${boss.hp}/${boss.maxHp}`);
 
   if (result.defeated) {
@@ -629,11 +655,81 @@ function attackBoss() {
 
 function finishBossEvent() {
   const level = levels[currentLevelIndex];
+  const defeatedBoss = boss;
+  const defeatToken = bossDefeatToken + 1;
 
+  bossDefeatToken = defeatToken;
   bossActive = false;
-  removeBoss();
-  updateHud(`${level.boss.name} defeated! Read the island clue.`);
-  showRouteQuestion(level);
+  attackCooldown = 0;
+
+  if (defeatedBoss && defeatedBoss.element) {
+    defeatedBoss.element.classList.add("defeated");
+    showFloatingText("Defeated!", defeatedBoss.x - 4, defeatedBoss.y - 14, "defeat");
+  }
+
+  updateHud(getBossDefeatMessage(level.boss.name));
+
+  setTimeout(() => {
+    if (bossDefeatToken !== defeatToken || gameOver || finalIslandActive) {
+      return;
+    }
+
+    removeBoss();
+    showRouteQuestion(level);
+  }, 750);
+}
+
+function getBossDefeatMessage(bossName) {
+  if (bossName === "Giant Crab") {
+    return "The Giant Crab dropped a sea clue!";
+  }
+
+  if (bossName === "Fog Ghost") {
+    return "The Fog Ghost vanished and revealed a hidden route!";
+  }
+
+  if (bossName === "Lava Beast") {
+    return "The Lava Beast collapsed and the final clue appears!";
+  }
+
+  return `${bossName} defeated! Read the island clue.`;
+}
+
+function showSlashEffect() {
+  const slash = document.createElement("div");
+
+  slash.className = "slash-effect";
+  slash.textContent = "⚔";
+  slash.style.left = `${keepInside(player.x + 22, gameWidth - 34)}px`;
+  slash.style.top = `${keepInside(player.y - 3, gameHeight - 34)}px`;
+  gameArea.appendChild(slash);
+  setTimeout(() => slash.remove(), 260);
+}
+
+function playBossHitEffect() {
+  if (!boss || !boss.element) {
+    return;
+  }
+
+  boss.element.classList.remove("hit");
+  void boss.element.offsetWidth;
+  boss.element.classList.add("hit");
+  setTimeout(() => {
+    if (boss && boss.element) {
+      boss.element.classList.remove("hit");
+    }
+  }, 260);
+}
+
+function showFloatingText(text, x, y, type) {
+  const floatingText = document.createElement("div");
+
+  floatingText.className = `floating-text ${type || ""}`.trim();
+  floatingText.textContent = text;
+  floatingText.style.left = `${keepInside(x, gameWidth - 80)}px`;
+  floatingText.style.top = `${keepInside(y, gameHeight - 20)}px`;
+  gameArea.appendChild(floatingText);
+  setTimeout(() => floatingText.remove(), 850);
 }
 
 function getPlayerSpeed() {
@@ -778,6 +874,7 @@ function takeDamage(statusMessage, gameOverMessage, options = {}) {
   health = result.health;
   shieldCharges = result.shieldCharges;
   enemyHitCooldown = result.cooldown;
+  updateHpLabels();
 
   if (result.blocked) {
     activePowerUp = null;
@@ -795,6 +892,10 @@ function takeDamage(statusMessage, gameOverMessage, options = {}) {
 
   if (options.shake) {
     shakeGameArea();
+  }
+
+  if (options.playerDamageText) {
+    showFloatingText("-1 HP", player.x + 2, player.y - 9, "damage");
   }
 
   updateHud(statusMessage);
