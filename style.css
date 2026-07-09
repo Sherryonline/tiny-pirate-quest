@@ -24,8 +24,8 @@ h1 {
 }
 
 .hud {
-  display: flex;
-  justify-content: space-between;
+  display: grid;
+  grid-template-columns: 1.2fr 0.6fr 0.6fr 1fr 1.6fr;
   gap: 10px;
   margin-bottom: 12px;
   padding: 10px;
@@ -50,8 +50,202 @@ h1 {
   box-shadow: 0 8px 0 rgba(0, 0, 0, 0.15);
 }
 
+.game-area::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.game-area.shake {
+  animation: screen-shake 0.28s linear;
+}
+
+.level-coconut {
+  background:
+    radial-gradient(circle at 78% 18%, #8ed96f 0 8%, transparent 9%),
+    radial-gradient(circle at 20% 72%, #83d36c 0 10%, transparent 11%),
+    radial-gradient(circle at 50% 50%, #fff2a8 0 5%, transparent 6%),
+    linear-gradient(#f6da85, #eec36a);
+  border-color: #8b5a2b;
+}
+
+.level-coconut::before {
+  background:
+    radial-gradient(circle at 8% 12%, rgba(255, 255, 255, 0.45) 0 5%, transparent 6%),
+    radial-gradient(circle at 88% 82%, rgba(37, 135, 73, 0.22) 0 12%, transparent 13%);
+}
+
+.level-mist {
+  background:
+    radial-gradient(circle at 70% 30%, #577064 0 9%, transparent 10%),
+    radial-gradient(circle at 24% 76%, #526b60 0 10%, transparent 11%),
+    linear-gradient(#7c8790, #4f5a61);
+  border-color: #33414a;
+}
+
+.level-mist::before {
+  background:
+    linear-gradient(12deg, transparent 12%, rgba(235, 244, 242, 0.42) 16%, transparent 26%),
+    linear-gradient(-10deg, transparent 42%, rgba(235, 244, 242, 0.35) 48%, transparent 61%),
+    linear-gradient(6deg, transparent 68%, rgba(235, 244, 242, 0.25) 73%, transparent 84%);
+}
+
+.level-volcano {
+  background:
+    radial-gradient(circle at 76% 22%, #6b3027 0 10%, transparent 11%),
+    radial-gradient(circle at 24% 70%, #80372b 0 12%, transparent 13%),
+    linear-gradient(#9b4b31, #4a2926);
+  border-color: #552018;
+}
+
+.level-volcano::before {
+  background:
+    linear-gradient(120deg, transparent 18%, rgba(255, 92, 35, 0.35) 20%, transparent 25%),
+    linear-gradient(30deg, transparent 62%, rgba(255, 177, 52, 0.25) 66%, transparent 72%);
+}
+
+.island-effects,
+.coconut-effect,
+.mist-effect,
+.volcano-effect {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.island-effects {
+  z-index: 2;
+}
+
+.coconut-effect,
+.mist-effect,
+.volcano-effect {
+  display: none;
+}
+
+.level-coconut .coconut-effect,
+.level-mist .mist-effect,
+.level-volcano .volcano-effect {
+  display: block;
+}
+
+.tree,
+.cloud,
+.wave,
+.volcano {
+  position: absolute;
+  user-select: none;
+}
+
+.tree {
+  font-size: 34px;
+}
+
+.tree-one {
+  left: 22px;
+  top: 24px;
+}
+
+.tree-two {
+  right: 36px;
+  bottom: 48px;
+}
+
+.cloud {
+  top: 26px;
+  font-size: 26px;
+  opacity: 0.75;
+  animation: drift-cloud 9s ease-in-out infinite alternate;
+}
+
+.cloud-one {
+  left: 95px;
+}
+
+.cloud-two {
+  right: 120px;
+  animation-duration: 12s;
+}
+
+.wave {
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 34px;
+  font-weight: bold;
+  animation: wave-bob 1.8s ease-in-out infinite alternate;
+}
+
+.wave-one {
+  left: 18px;
+  bottom: 16px;
+}
+
+.wave-two {
+  right: 24px;
+  top: 88px;
+  animation-delay: 0.5s;
+}
+
+.fog {
+  position: absolute;
+  left: -80px;
+  width: 760px;
+  height: 48px;
+  border-radius: 999px;
+  background: rgba(226, 235, 232, 0.34);
+  filter: blur(10px);
+  animation: fog-drift 7s ease-in-out infinite alternate;
+}
+
+.fog-one {
+  top: 70px;
+}
+
+.fog-two {
+  top: 170px;
+  opacity: 0.85;
+  animation-duration: 10s;
+}
+
+.fog-three {
+  top: 278px;
+  opacity: 0.65;
+  animation-duration: 12s;
+}
+
+.volcano {
+  right: 36px;
+  top: 18px;
+  font-size: 46px;
+  filter: drop-shadow(0 5px 2px rgba(0, 0, 0, 0.25));
+}
+
+.smoke {
+  position: absolute;
+  right: 58px;
+  top: 12px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: rgba(80, 80, 80, 0.38);
+  filter: blur(2px);
+  animation: smoke-rise 2.4s ease-in-out infinite;
+}
+
+.smoke-two {
+  right: 42px;
+  animation-delay: 0.5s;
+}
+
+.smoke-three {
+  right: 70px;
+  animation-delay: 1s;
+}
+
 .sprite {
   position: absolute;
+  z-index: 3;
   width: 34px;
   height: 34px;
   display: grid;
@@ -65,21 +259,59 @@ h1 {
   font-size: 24px;
 }
 
-#player {
-  z-index: 3;
+.lava {
+  font-size: 26px;
+  animation: lava-pulse 0.9s ease-in-out infinite alternate;
+  filter: drop-shadow(0 0 6px #ff5b24);
 }
 
-#enemy {
-  z-index: 2;
+#player {
+  z-index: 5;
+  transition: left 0.08s ease-out, top 0.08s ease-out;
+}
+
+#player.damaged {
+  animation: player-flash 0.32s linear 3;
+}
+
+.enemy {
+  z-index: 4;
 }
 
 #chest {
-  z-index: 1;
+  z-index: 3;
   filter: grayscale(1);
 }
 
 #chest.open {
   filter: none;
+}
+
+.game-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  display: grid;
+  place-content: center;
+  gap: 12px;
+  padding: 24px;
+  text-align: center;
+  background: rgba(36, 49, 31, 0.72);
+  color: white;
+}
+
+.game-overlay.hidden {
+  display: none;
+}
+
+.overlay-title {
+  font-size: 38px;
+  font-weight: bold;
+}
+
+.game-overlay p {
+  margin: 0;
+  font-size: 18px;
 }
 
 .help {
@@ -99,4 +331,80 @@ button {
 
 button:hover {
   background: #245439;
+}
+
+@keyframes drift-cloud {
+  from {
+    transform: translateX(-10px);
+  }
+  to {
+    transform: translateX(18px);
+  }
+}
+
+@keyframes wave-bob {
+  from {
+    transform: translateY(0);
+  }
+  to {
+    transform: translateY(6px);
+  }
+}
+
+@keyframes fog-drift {
+  from {
+    transform: translateX(-30px);
+  }
+  to {
+    transform: translateX(38px);
+  }
+}
+
+@keyframes smoke-rise {
+  from {
+    opacity: 0.55;
+    transform: translateY(12px) scale(0.8);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-30px) scale(1.5);
+  }
+}
+
+@keyframes lava-pulse {
+  from {
+    transform: scale(1);
+  }
+  to {
+    transform: scale(1.12);
+  }
+}
+
+@keyframes player-flash {
+  0%,
+  100% {
+    filter: none;
+  }
+  50% {
+    filter: drop-shadow(0 0 8px #ff2222) saturate(2);
+  }
+}
+
+@keyframes screen-shake {
+  0%,
+  100% {
+    transform: translate(0, 0);
+  }
+  20% {
+    transform: translate(-5px, 3px);
+  }
+  40% {
+    transform: translate(5px, -3px);
+  }
+  60% {
+    transform: translate(-4px, -2px);
+  }
+  80% {
+    transform: translate(4px, 2px);
+  }
 }

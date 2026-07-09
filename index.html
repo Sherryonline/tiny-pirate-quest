@@ -11,18 +11,46 @@
     <h1>Tiny Pirate Quest</h1>
 
     <section class="hud" aria-label="Game information">
-      <div>Score: <span id="score">0</span>/10</div>
+      <div>Level: <span id="level">1 - Coconut Island</span></div>
+      <div>Score: <span id="score">0</span>/<span id="coinGoal">10</span></div>
       <div>Health: <span id="health">3</span></div>
+      <div>Map Fragments: <span id="fragments">0</span>/3</div>
       <div>Status: <span id="status">Collect all 10 coins!</span></div>
     </section>
 
     <section id="gameArea" class="game-area" aria-label="Tiny Pirate Quest game area">
+      <div class="island-effects" aria-hidden="true">
+        <div class="coconut-effect">
+          <span class="tree tree-one">🌴</span>
+          <span class="tree tree-two">🌴</span>
+          <span class="cloud cloud-one">☁️</span>
+          <span class="cloud cloud-two">☁️</span>
+          <span class="wave wave-one">〰</span>
+          <span class="wave wave-two">〰</span>
+        </div>
+        <div class="mist-effect">
+          <span class="fog fog-one"></span>
+          <span class="fog fog-two"></span>
+          <span class="fog fog-three"></span>
+        </div>
+        <div class="volcano-effect">
+          <span class="volcano">🌋</span>
+          <span class="smoke smoke-one"></span>
+          <span class="smoke smoke-two"></span>
+          <span class="smoke smoke-three"></span>
+        </div>
+      </div>
       <div id="player" class="sprite">🏴‍☠️</div>
       <div id="enemy" class="sprite">🦀</div>
       <div id="chest" class="sprite">🧰</div>
+      <div id="gameOverlay" class="game-overlay hidden">
+        <div id="overlayTitle" class="overlay-title">You Win!</div>
+        <p id="overlayMessage">You opened the treasure chest.</p>
+        <button id="overlayRestartButton" type="button">Restart Game</button>
+      </div>
     </section>
 
-    <p class="help">Use the arrow keys or WASD to move. Collect coins, avoid the crab, then open the chest.</p>
+    <p class="help">Use the arrow keys or WASD to move. Collect coins, avoid crabs and lava, then open the chest.</p>
     <button id="restartButton" type="button">Restart Game</button>
   </main>
 
