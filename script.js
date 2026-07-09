@@ -42,51 +42,55 @@ let overlayAction = "restart";
 let routeQuestionShown = false;
 let routeUnlocked = false;
 
-const levels = [
-  {
-    name: "Coconut Island",
-    className: "level-coconut",
-    coinCount: 10,
-    clue: "The path follows the soft shapes that drift above the coconut trees.",
-    question: "Which island sign points to the next sea route?",
-    choices: ["Clouds", "Lava", "Fog"],
-    correctChoice: 0,
-    enemies: [{ x: 280, y: 190, minX: 120, maxX: 445, speed: 120 }],
-    lavaTraps: []
-  },
-  {
-    name: "Mist Island",
-    className: "level-mist",
-    coinCount: 12,
-    clue: "The hidden route appears where the gray veil rolls over the shore.",
-    question: "What should the pirate follow through Mist Island?",
-    choices: ["Coconut trees", "Fog", "Volcano smoke"],
-    correctChoice: 1,
-    enemies: [
-      { x: 160, y: 120, minX: 80, maxX: 300, speed: 135 },
-      { x: 430, y: 255, minX: 310, maxX: 520, speed: 150 }
-    ],
-    lavaTraps: []
-  },
-  {
-    name: "Volcano Island",
-    className: "level-volcano",
-    coinCount: 15,
-    clue: "The final route glows near the mountain that breathes smoke.",
-    question: "What marks the final treasure route?",
-    choices: ["Ocean waves", "Coconut leaves", "Volcano smoke"],
-    correctChoice: 2,
-    enemies: [
-      { x: 145, y: 110, minX: 60, maxX: 285, speed: 150 },
-      { x: 420, y: 265, minX: 300, maxX: 525, speed: 165 }
-    ],
-    lavaTraps: [
-      { x: 210, y: 135 },
-      { x: 360, y: 190 },
-      { x: 235, y: 275 }
-    ]
-  }
-];
+const levelConfig = {
+  levels: [
+    {
+      name: "Coconut Island",
+      className: "level-coconut",
+      coinCount: 10,
+      clue: "The path follows the soft shapes that drift above the coconut trees.",
+      question: "Which island sign points to the next sea route?",
+      choices: ["Clouds", "Lava", "Fog"],
+      correctChoice: 0,
+      enemies: [{ x: 280, y: 190, minX: 120, maxX: 445, speed: 120 }],
+      lavaTraps: []
+    },
+    {
+      name: "Mist Island",
+      className: "level-mist",
+      coinCount: 12,
+      clue: "The hidden route appears where the gray veil rolls over the shore.",
+      question: "What should the pirate follow through Mist Island?",
+      choices: ["Coconut trees", "Fog", "Volcano smoke"],
+      correctChoice: 1,
+      enemies: [
+        { x: 160, y: 120, minX: 80, maxX: 300, speed: 135 },
+        { x: 430, y: 255, minX: 310, maxX: 520, speed: 150 }
+      ],
+      lavaTraps: []
+    },
+    {
+      name: "Volcano Island",
+      className: "level-volcano",
+      coinCount: 15,
+      clue: "The final route glows near the mountain that breathes smoke.",
+      question: "What marks the final treasure route?",
+      choices: ["Ocean waves", "Coconut leaves", "Volcano smoke"],
+      correctChoice: 2,
+      enemies: [
+        { x: 145, y: 110, minX: 60, maxX: 285, speed: 150 },
+        { x: 420, y: 265, minX: 300, maxX: 525, speed: 165 }
+      ],
+      lavaTraps: [
+        { x: 210, y: 135 },
+        { x: 360, y: 190 },
+        { x: 235, y: 275 }
+      ]
+    }
+  ]
+};
+
+const levels = levelConfig.levels;
 
 const worldMapRoute = [
   { name: "Coconut Island", icon: "🥥" },
