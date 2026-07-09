@@ -306,6 +306,14 @@ h1 {
   z-index: 4;
 }
 
+.boss {
+  z-index: 4;
+  width: 42px;
+  height: 42px;
+  font-size: 36px;
+  filter: drop-shadow(0 0 8px rgba(0, 0, 0, 0.35));
+}
+
 #chest {
   z-index: 3;
   filter: grayscale(1);

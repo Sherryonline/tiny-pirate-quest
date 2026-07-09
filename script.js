@@ -37,6 +37,7 @@ let playerX;
 let playerY;
 let enemies;
 let lavaTraps;
+let boss;
 let coins;
 let score;
 let health;
@@ -52,6 +53,9 @@ let lastFrameTime = 0;
 let overlayAction = "restart";
 let routeQuestionShown = false;
 let routeUnlocked = false;
+let bossActive = false;
+let bossTimer = 0;
+let bossEventStarted = false;
 
 const levelConfig = {
   levels: [
@@ -63,6 +67,7 @@ const levelConfig = {
       question: "Which island sign points to the next sea route?",
       choices: ["Clouds", "Lava", "Fog"],
       correctChoice: 0,
+      boss: { name: "Giant Crab", icon: "🦀", x: 280, y: 120, speed: 115 },
       enemies: [{ x: 280, y: 190, minX: 120, maxX: 445, speed: 120 }],
       lavaTraps: []
     },
@@ -74,6 +79,7 @@ const levelConfig = {
       question: "What should the pirate follow through Mist Island?",
       choices: ["Coconut trees", "Fog", "Volcano smoke"],
       correctChoice: 1,
+      boss: { name: "Fog Ghost", icon: "👻", x: 300, y: 90, speed: 130 },
       enemies: [
         { x: 160, y: 120, minX: 80, maxX: 300, speed: 135 },
         { x: 430, y: 255, minX: 310, maxX: 520, speed: 150 }
@@ -88,6 +94,7 @@ const levelConfig = {
       question: "What marks the final treasure route?",
       choices: ["Ocean waves", "Coconut leaves", "Volcano smoke"],
       correctChoice: 2,
+      boss: { name: "Lava Beast", icon: "🔥", x: 300, y: 90, speed: 145 },
       enemies: [
         { x: 145, y: 110, minX: 60, maxX: 285, speed: 150 },
         { x: 420, y: 265, minX: 300, maxX: 525, speed: 165 }
@@ -174,6 +181,9 @@ function startLevel() {
   overlayAction = "restart";
   routeQuestionShown = false;
   routeUnlocked = false;
+  bossActive = false;
+  bossTimer = 0;
+  bossEventStarted = false;
 
   playerElement.classList.remove("damaged");
   gameArea.classList.remove("shake");
@@ -183,6 +193,7 @@ function startLevel() {
   worldMap.classList.add("hidden");
   upgradeMenu.classList.add("hidden");
   gameOverlay.classList.add("hidden");
+  removeBoss();
   chestElement.style.left = "535px";
   chestElement.style.top = "335px";
 
@@ -287,6 +298,11 @@ function drawSprites() {
     lava.element.style.left = `${lava.x}px`;
     lava.element.style.top = `${lava.y}px`;
   });
+
+  if (bossActive && boss) {
+    boss.element.style.left = `${boss.x}px`;
+    boss.element.style.top = `${boss.y}px`;
+  }
 }
 
 function movePlayer(deltaTime) {
@@ -343,8 +359,7 @@ function checkCollisions(deltaTime) {
       coin.collected = true;
       score += 1;
       if (score === level.coinCount) {
-        updateHud("All coins collected! Read the island clue.");
-        showRouteQuestion(level);
+        startBossEvent(level);
       } else {
         updateHud(getCoinStatusMessage(level));
       }
@@ -373,6 +388,87 @@ function checkCollisions(deltaTime) {
   if (routeUnlocked && isTouching(player, chest)) {
     completeLevel();
   }
+}
+
+function startBossEvent(level) {
+  if (bossEventStarted) {
+    return;
+  }
+
+  bossEventStarted = true;
+  bossActive = true;
+  bossTimer = 20;
+  createBoss(level.boss);
+  updateHud(`${level.boss.name} appeared! Avoid the boss for 20 seconds.`);
+}
+
+function createBoss(settings) {
+  removeBoss();
+
+  const element = document.createElement("div");
+  element.className = "sprite boss";
+  element.textContent = settings.icon;
+  gameArea.appendChild(element);
+
+  boss = {
+    ...settings,
+    element
+  };
+}
+
+function removeBoss() {
+  if (boss && boss.element) {
+    boss.element.remove();
+  }
+
+  boss = null;
+}
+
+function updateBoss(deltaTime) {
+  if (!bossActive || !boss) {
+    return;
+  }
+
+  bossTimer = Math.max(0, bossTimer - deltaTime);
+  moveBoss(deltaTime);
+  checkBossCollision();
+
+  if (gameOver) {
+    return;
+  }
+
+  if (bossTimer <= 0) {
+    finishBossEvent();
+  } else {
+    statusElement.textContent = `Avoid ${boss.name}: ${Math.ceil(bossTimer)}s left`;
+  }
+}
+
+function moveBoss(deltaTime) {
+  const dx = player.x - boss.x;
+  const dy = player.y - boss.y;
+  const distance = Math.hypot(dx, dy) || 1;
+
+  boss.x = keepInside(boss.x + (dx / distance) * boss.speed * deltaTime, gameWidth - spriteSize);
+  boss.y = keepInside(boss.y + (dy / distance) * boss.speed * deltaTime, gameHeight - spriteSize);
+}
+
+function checkBossCollision() {
+  if (enemyHitCooldown === 0 && isTouching(player, boss)) {
+    takeDamage(`${boss.name} hit you! Keep dodging.`, `${boss.name} ended your quest.`, {
+      knockbackFrom: boss,
+      flash: true
+    });
+  }
+}
+
+function finishBossEvent() {
+  const level = levels[currentLevelIndex];
+
+  bossActive = false;
+  removeBoss();
+  updateHud(`${level.boss.name} retreated! Read the island clue.`);
+  showRouteQuestion(level);
 }
 
 function getPlayerSpeed() {
@@ -743,6 +839,7 @@ function gameLoop(currentTime) {
     movePlayer(deltaTime);
     moveEnemies(deltaTime);
     checkCollisions(deltaTime);
+    updateBoss(deltaTime);
     drawSprites();
   }
 
