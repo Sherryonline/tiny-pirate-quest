@@ -13,6 +13,7 @@
     <section class="hud" aria-label="Game information">
       <div>Level: <span id="level">1 - Coconut Island</span></div>
       <div>Score: <span id="score">0</span>/<span id="coinGoal">10</span></div>
+      <div>Wallet: <span id="totalCoins">0</span></div>
       <div>Health: <span id="health">3</span></div>
       <div>Map Fragments: <span id="fragments">0</span>/3</div>
       <div>Crew: <span id="crew">None</span></div>
@@ -53,6 +54,12 @@
         <div class="world-map-title">World Map</div>
         <p id="worldMapMessage">Choose the next unlocked island.</p>
         <div id="worldMapIslands" class="world-map-islands"></div>
+      </div>
+      <div id="upgradeMenu" class="upgrade-menu hidden">
+        <div class="upgrade-title">Ship Upgrades</div>
+        <p id="upgradeMessage">Spend coins before sailing onward.</p>
+        <div id="upgradeChoices" class="upgrade-choices"></div>
+        <button id="continueMapButton" type="button">Continue to World Map</button>
       </div>
       <div id="gameOverlay" class="game-overlay hidden">
         <div id="overlayTitle" class="overlay-title">You Win!</div>

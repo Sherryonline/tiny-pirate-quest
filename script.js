@@ -5,6 +5,7 @@ const chestElement = document.getElementById("chest");
 const levelElement = document.getElementById("level");
 const scoreElement = document.getElementById("score");
 const coinGoalElement = document.getElementById("coinGoal");
+const totalCoinsElement = document.getElementById("totalCoins");
 const healthElement = document.getElementById("health");
 const fragmentsElement = document.getElementById("fragments");
 const crewElement = document.getElementById("crew");
@@ -20,11 +21,16 @@ const routeChoices = document.getElementById("routeChoices");
 const worldMap = document.getElementById("worldMap");
 const worldMapMessage = document.getElementById("worldMapMessage");
 const worldMapIslands = document.getElementById("worldMapIslands");
+const upgradeMenu = document.getElementById("upgradeMenu");
+const upgradeMessage = document.getElementById("upgradeMessage");
+const upgradeChoices = document.getElementById("upgradeChoices");
+const continueMapButton = document.getElementById("continueMapButton");
 
 const gameWidth = 600;
 const gameHeight = 400;
 const spriteSize = 34;
-const playerSpeed = 220;
+const basePlayerSpeed = 220;
+const baseMaxHealth = 3;
 
 let player;
 let playerX;
@@ -34,10 +40,13 @@ let lavaTraps;
 let coins;
 let score;
 let health;
+let maxHealth = baseMaxHealth;
+let totalCoins = 0;
 let gameOver;
 let currentLevelIndex = 0;
 let mapFragments = 0;
 let crew = [];
+let purchasedUpgrades = [];
 let enemyHitCooldown;
 let lastFrameTime = 0;
 let overlayAction = "restart";
@@ -101,6 +110,27 @@ const worldMapRoute = [
   { name: "Treasure Island", icon: "🏝️" }
 ];
 
+const shipUpgrades = [
+  {
+    id: "strongSail",
+    name: "Strong Sail",
+    cost: 8,
+    description: "Increase pirate movement speed."
+  },
+  {
+    id: "reinforcedHull",
+    name: "Reinforced Hull",
+    cost: 10,
+    description: "Increase max health by 1."
+  },
+  {
+    id: "treasureRadar",
+    name: "Treasure Radar",
+    cost: 6,
+    description: "Show a hint when only a few coins remain."
+  }
+];
+
 const coinPositions = [
   { x: 80, y: 70 },
   { x: 185, y: 45 },
@@ -124,7 +154,10 @@ const keys = {};
 function startGame() {
   currentLevelIndex = 0;
   mapFragments = 0;
+  totalCoins = 0;
+  maxHealth = baseMaxHealth;
   crew = [];
+  purchasedUpgrades = [];
   startLevel();
 }
 
@@ -135,7 +168,7 @@ function startLevel() {
   playerX = player.x;
   playerY = player.y;
   score = 0;
-  health = 3;
+  health = maxHealth;
   gameOver = false;
   enemyHitCooldown = 0;
   overlayAction = "restart";
@@ -148,6 +181,7 @@ function startLevel() {
   chestElement.classList.add("hidden");
   routePanel.classList.add("hidden");
   worldMap.classList.add("hidden");
+  upgradeMenu.classList.add("hidden");
   gameOverlay.classList.add("hidden");
   chestElement.style.left = "535px";
   chestElement.style.top = "335px";
@@ -227,6 +261,7 @@ function updateHud(message) {
   levelElement.textContent = `${currentLevelIndex + 1} - ${level.name}`;
   scoreElement.textContent = score;
   coinGoalElement.textContent = level.coinCount;
+  totalCoinsElement.textContent = totalCoins;
   healthElement.textContent = health;
   fragmentsElement.textContent = mapFragments;
   crewElement.textContent = crew.length > 0 ? crew.join(", ") : "None";
@@ -276,8 +311,8 @@ function movePlayer(deltaTime) {
     moveY *= Math.SQRT1_2;
   }
 
-  playerX += moveX * playerSpeed * deltaTime;
-  playerY += moveY * playerSpeed * deltaTime;
+  playerX += moveX * getPlayerSpeed() * deltaTime;
+  playerY += moveY * getPlayerSpeed() * deltaTime;
 
   playerX = keepInside(playerX, gameWidth - spriteSize);
   playerY = keepInside(playerY, gameHeight - spriteSize);
@@ -311,7 +346,7 @@ function checkCollisions(deltaTime) {
         updateHud("All coins collected! Read the island clue.");
         showRouteQuestion(level);
       } else {
-        updateHud("Nice coin grab!");
+        updateHud(getCoinStatusMessage(level));
       }
     }
   });
@@ -338,6 +373,18 @@ function checkCollisions(deltaTime) {
   if (routeUnlocked && isTouching(player, chest)) {
     completeLevel();
   }
+}
+
+function getPlayerSpeed() {
+  return purchasedUpgrades.includes("strongSail") ? basePlayerSpeed + 45 : basePlayerSpeed;
+}
+
+function getCoinStatusMessage(level) {
+  if (purchasedUpgrades.includes("treasureRadar") && score >= level.coinCount - 2) {
+    return "Treasure Radar: only a few coins remain!";
+  }
+
+  return "Nice coin grab!";
 }
 
 function showRouteQuestion(level) {
@@ -435,13 +482,84 @@ function completeLevel() {
   const crewMessage = unlockCrewForIsland(completedLevelName);
   const cookMessage = applyCookEffect();
 
+  totalCoins += score;
   mapFragments += 1;
   gameOver = true;
   updateHud([
     `Sea Map Fragment found on ${completedLevelName}!`,
+    `${score} coins added to your wallet.`,
     crewMessage,
     cookMessage
   ].filter(Boolean).join(" "));
+  showUpgradeMenu();
+}
+
+function showUpgradeMenu() {
+  renderUpgradeChoices();
+  upgradeMessage.textContent = `Wallet: ${totalCoins} coins. Spend coins before sailing onward.`;
+  upgradeMenu.classList.remove("hidden");
+}
+
+function renderUpgradeChoices() {
+  upgradeChoices.innerHTML = "";
+
+  shipUpgrades.forEach((upgrade) => {
+    const isPurchased = purchasedUpgrades.includes(upgrade.id);
+    const canAfford = totalCoins >= upgrade.cost;
+    const card = document.createElement("div");
+    const button = document.createElement("button");
+
+    card.className = "upgrade-card";
+    card.innerHTML = `
+      <div>
+        <div class="upgrade-name">${upgrade.name} - ${upgrade.cost} coins</div>
+        <div class="upgrade-description">${upgrade.description}</div>
+      </div>
+    `;
+
+    button.type = "button";
+    button.textContent = isPurchased ? "Purchased" : "Buy";
+    button.disabled = isPurchased;
+    button.addEventListener("click", () => buyUpgrade(upgrade.id));
+
+    if (!isPurchased && !canAfford) {
+      button.textContent = "Need Coins";
+    }
+
+    card.appendChild(button);
+    upgradeChoices.appendChild(card);
+  });
+}
+
+function buyUpgrade(upgradeId) {
+  const upgrade = shipUpgrades.find((item) => item.id === upgradeId);
+
+  if (!upgrade || purchasedUpgrades.includes(upgradeId)) {
+    return;
+  }
+
+  if (totalCoins < upgrade.cost) {
+    upgradeMessage.textContent = "Not enough coins for that upgrade.";
+    return;
+  }
+
+  totalCoins -= upgrade.cost;
+  purchasedUpgrades.push(upgradeId);
+  applyUpgradeEffect(upgradeId);
+  updateHud(`${upgrade.name} purchased!`);
+  upgradeMessage.textContent = `${upgrade.name} applied immediately. Wallet: ${totalCoins} coins.`;
+  renderUpgradeChoices();
+}
+
+function applyUpgradeEffect(upgradeId) {
+  if (upgradeId === "reinforcedHull") {
+    maxHealth += 1;
+    health = Math.min(health + 1, maxHealth);
+  }
+}
+
+function continueToWorldMap() {
+  upgradeMenu.classList.add("hidden");
   showWorldMap();
 }
 
@@ -613,11 +731,15 @@ function isWorldMapOpen() {
   return !worldMap.classList.contains("hidden");
 }
 
+function isUpgradeMenuOpen() {
+  return !upgradeMenu.classList.contains("hidden");
+}
+
 function gameLoop(currentTime) {
   const deltaTime = lastFrameTime ? (currentTime - lastFrameTime) / 1000 : 0;
   lastFrameTime = currentTime;
 
-  if (!gameOver && !isRouteQuestionOpen() && !isWorldMapOpen()) {
+  if (!gameOver && !isRouteQuestionOpen() && !isWorldMapOpen() && !isUpgradeMenuOpen()) {
     movePlayer(deltaTime);
     moveEnemies(deltaTime);
     checkCollisions(deltaTime);
@@ -642,6 +764,7 @@ document.addEventListener("keyup", (event) => {
 
 restartButton.addEventListener("click", startGame);
 overlayRestartButton.addEventListener("click", handleOverlayButton);
+continueMapButton.addEventListener("click", continueToWorldMap);
 
 startGame();
 gameLoop();

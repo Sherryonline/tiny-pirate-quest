@@ -25,7 +25,7 @@ h1 {
 
 .hud {
   display: grid;
-  grid-template-columns: 1.2fr 0.6fr 0.6fr 1fr 0.9fr 1.6fr;
+  grid-template-columns: 1.2fr 0.6fr 0.7fr 0.6fr 1fr 0.9fr 1.6fr;
   gap: 10px;
   margin-bottom: 12px;
   padding: 10px;
@@ -437,6 +437,66 @@ h1 {
 }
 
 .map-island button:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+  background: #777;
+}
+
+.upgrade-menu {
+  position: absolute;
+  inset: 28px;
+  z-index: 9;
+  display: grid;
+  align-content: center;
+  gap: 12px;
+  padding: 18px;
+  text-align: center;
+  color: #24311f;
+  background: rgba(255, 243, 196, 0.97);
+  border: 3px solid #8b5a2b;
+  border-radius: 8px;
+  box-shadow: 0 6px 0 rgba(0, 0, 0, 0.18);
+}
+
+.upgrade-menu.hidden {
+  display: none;
+}
+
+.upgrade-title {
+  font-size: 28px;
+  font-weight: bold;
+}
+
+.upgrade-menu p {
+  margin: 0;
+}
+
+.upgrade-choices {
+  display: grid;
+  gap: 8px;
+}
+
+.upgrade-card {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+  align-items: center;
+  padding: 10px;
+  text-align: left;
+  background: #f7e7a8;
+  border: 2px solid #8b5a2b;
+  border-radius: 8px;
+}
+
+.upgrade-name {
+  font-weight: bold;
+}
+
+.upgrade-description {
+  font-size: 13px;
+}
+
+.upgrade-card button:disabled {
   cursor: not-allowed;
   opacity: 0.6;
   background: #777;
