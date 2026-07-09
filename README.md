@@ -18,12 +18,21 @@ https://sherryonline.github.io/tiny-pirate-quest/
 Collect coins -> Defeat boss -> Solve route clue -> Complete island -> Collect map fragments -> Reach Treasure Island
 ```
 
+## Story
+
+You are a tiny pirate searching for the lost treasure of the Tiny Sea. Explore islands, defeat sea monsters, collect gold coins, find map fragments, and unlock the route to the final treasure.
+
 ## Main Features
 
 - Top-down 2D browser game
 - Larger 720px x 480px island map
 - Keyboard movement with WASD and Arrow keys
 - Shift dash with cooldown
+- Story intro overlay before gameplay starts
+- Beginner control guide on first load
+- Quest Panel with island, objective, coin progress, fragments, and next hint
+- Battle Panel during boss fights with boss name, HP bar, phase, and fight hint
+- Heart health GUI in the HUD
 - Three main islands with different rules and visuals
 - Final Treasure Island unlock
 - Coin collection and wallet system
@@ -38,6 +47,8 @@ Collect coins -> Defeat boss -> Solve route clue -> Complete island -> Collect m
 - Sea Map Fragment progression
 - Crew system with Navigator and Cook
 - Ship upgrade menu
+- Shop wallet display and clear item cards
+- Toast messages for key feedback
 - Mystery Fruit power-ups
 - Restart Adventure flow
 - Unit tests for core game logic
@@ -54,14 +65,15 @@ Collect coins -> Defeat boss -> Solve route clue -> Complete island -> Collect m
 ## How to Play
 
 1. Open `index.html` in a browser.
-2. Move the pirate around the island.
-3. Collect all coins.
-4. Fight and defeat the island boss using Space.
-5. Answer the island clue question correctly.
-6. Complete the island and collect a Sea Map Fragment.
-7. Use the upgrade menu and World Map to continue.
-8. Collect 3 Sea Map Fragments to reveal Final Treasure Island.
-9. Open the Grand Treasure to finish the adventure.
+2. Read the story intro and click **Start Adventure**.
+3. Move the pirate around the island.
+4. Collect all coins.
+5. Fight and defeat the island boss using Space.
+6. Answer the island clue question correctly.
+7. Complete the island and collect a Sea Map Fragment.
+8. Use the upgrade menu and World Map to continue.
+9. Collect 3 Sea Map Fragments to reveal Final Treasure Island.
+10. Open the Grand Treasure to finish the adventure.
 
 ## Controls
 
@@ -73,6 +85,45 @@ Collect coins -> Defeat boss -> Solve route clue -> Complete island -> Collect m
 | Move Right | `D` or `Arrow Right` |
 | Attack Boss | `Space` |
 | Dash | `Shift` |
+
+## GUI Panels
+
+### Quest Panel
+
+The Quest Panel shows the current island, main objective, coin progress, collected map fragments, and the next action hint.
+
+Example objectives:
+
+- Collect all coins
+- Boss appeared! Defeat the boss
+- Solve the route clue
+- Buy upgrades or continue
+- Sail to next island
+- Open the Grand Treasure
+
+### Battle Panel
+
+The Battle Panel appears only during a boss fight. It shows the boss name, boss HP bar, current HP, max HP, phase, and a short fight hint.
+
+Boss phases shown in the panel:
+
+- Chasing
+- Resting
+- Stunned
+
+### Heart Health
+
+The HUD shows player health as heart icons. One heart equals one current HP, and the display supports higher max health from Reinforced Hull.
+
+The existing HP label still follows the player inside the game area.
+
+### Toast Messages
+
+Short toast messages appear for important actions, including coin collection, boss hits, boss defeat, route answers, damage, not enough coins, and upgrade purchases.
+
+### Shop Wallet
+
+The upgrade menu shows the current wallet as `Wallet: X coins`. Each upgrade card shows the name, price, effect, and either a buy button or owned state.
 
 ## Boss Fight Rules
 
@@ -212,10 +263,12 @@ npm run check
 | Boundary | Player cannot move outside the game area |
 | Larger map | Game area displays as 720px x 480px |
 | Player HP | HP label follows the player |
+| Heart HP | HUD hearts update after damage and healing |
 | Dash | Shift moves the player in the last movement direction and stays inside the map |
 | Coin collection | Coins disappear after collection |
 | Boss spawn | Boss appears after all coins are collected |
 | Boss HP | Boss HP label follows the boss |
+| Battle Panel | Appears only while boss is active and updates boss HP bar |
 | Boss attack | Space damages boss when boss overlaps the directional attack area |
 | Boss lock-on | Space aims toward nearby boss within lock-on range |
 | Boss rest/stun | Boss does not damage player while resting or stunned |
@@ -225,7 +278,10 @@ npm run check
 | Route question | Correct answer unlocks island completion |
 | Wrong route answer | Health decreases by 1 |
 | World Map | Next island unlocks after island completion |
+| Quest Panel | Objective and hint update across coins, boss, clue, shop, map, and final island |
 | Upgrades | Purchased upgrades apply immediately |
+| Shop Wallet | Upgrade menu shows wallet, prices, effects, and owned state |
+| Toasts | Key events show short temporary messages |
 | Crew | Navigator and Cook unlock after the correct islands |
 | Final island | Unlocks after 3 Sea Map Fragments |
 | Final treasure | Grand Treasure appears on the larger final map and shows final reward message |

@@ -12,6 +12,7 @@
 
     <section class="hud" aria-label="Game information">
       <div>Level: <span id="level">1 - Coconut Island</span></div>
+      <div>Health: <span id="heartHealth" class="heart-health">---</span></div>
       <div>Score: <span id="score">0</span>/<span id="coinGoal">10</span></div>
       <div>Wallet: <span id="totalCoins">0</span></div>
       <div>Map Fragments: <span id="fragments">0</span>/3</div>
@@ -20,7 +21,44 @@
       <div>Status: <span id="status">Collect all 10 coins!</span></div>
     </section>
 
+    <section class="quest-panel" aria-label="Quest information">
+      <div>
+        <span class="panel-label">Island</span>
+        <strong id="questIsland">Coconut Island</strong>
+      </div>
+      <div>
+        <span class="panel-label">Objective</span>
+        <strong id="questObjective">Collect all coins</strong>
+      </div>
+      <div>
+        <span class="panel-label">Coins</span>
+        <strong><span id="questCoins">0</span>/<span id="questCoinGoal">10</span></strong>
+      </div>
+      <div>
+        <span class="panel-label">Fragments</span>
+        <strong id="questFragments">0/3</strong>
+      </div>
+      <div class="quest-hint">
+        <span class="panel-label">Hint</span>
+        <strong id="questHint">Collect every coin on this island.</strong>
+      </div>
+    </section>
+
     <section id="gameArea" class="game-area" aria-label="Tiny Pirate Quest game area">
+      <div id="toastContainer" class="toast-container" aria-live="polite"></div>
+      <div id="battlePanel" class="battle-panel hidden" aria-label="Boss battle information">
+        <div class="battle-header">
+          <span>Boss: <strong id="battleBossName">Giant Crab</strong></span>
+          <span id="battleBossHpText">HP: 3 / 3</span>
+        </div>
+        <div class="battle-hp-bar" aria-hidden="true">
+          <div id="battleBossHpFill" class="battle-hp-fill"></div>
+        </div>
+        <div class="battle-meta">
+          <span>Phase: <strong id="battleBossPhase">Chasing</strong></span>
+          <span id="battleHint">Attack during rest or stun!</span>
+        </div>
+      </div>
       <div class="island-effects" aria-hidden="true">
         <div class="coconut-effect">
           <span class="tree tree-one">🌴</span>
@@ -59,9 +97,26 @@
       </div>
       <div id="upgradeMenu" class="upgrade-menu hidden">
         <div class="upgrade-title">Ship Upgrades</div>
+        <p id="upgradeWallet" class="upgrade-wallet">Wallet: 0 coins</p>
         <p id="upgradeMessage">Spend coins before sailing onward.</p>
         <div id="upgradeChoices" class="upgrade-choices"></div>
         <button id="continueMapButton" type="button">Continue to World Map</button>
+      </div>
+      <div id="introOverlay" class="intro-overlay">
+        <div class="intro-card">
+          <h2>Tiny Pirate Quest</h2>
+          <p>You are a tiny pirate searching for the lost treasure of the Tiny Sea. Explore islands, defeat sea monsters, collect gold coins, find map fragments, and unlock the route to the final treasure.</p>
+          <div class="intro-controls">
+            <div><strong>Move:</strong> WASD or Arrow Keys</div>
+            <div><strong>Attack:</strong> Space</div>
+            <div><strong>Dash:</strong> Shift</div>
+            <div>Collect coins</div>
+            <div>Defeat boss</div>
+            <div>Solve route clue</div>
+            <div>Open World Map</div>
+          </div>
+          <button id="startAdventureButton" type="button">Start Adventure</button>
+        </div>
       </div>
       <div id="gameOverlay" class="game-overlay hidden">
         <div id="overlayTitle" class="overlay-title">You Win!</div>

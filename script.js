@@ -9,6 +9,20 @@ const totalCoinsElement = document.getElementById("totalCoins");
 const fragmentsElement = document.getElementById("fragments");
 const crewElement = document.getElementById("crew");
 const activeFruitElement = document.getElementById("activeFruit");
+const heartHealthElement = document.getElementById("heartHealth");
+const questIslandElement = document.getElementById("questIsland");
+const questObjectiveElement = document.getElementById("questObjective");
+const questCoinsElement = document.getElementById("questCoins");
+const questCoinGoalElement = document.getElementById("questCoinGoal");
+const questFragmentsElement = document.getElementById("questFragments");
+const questHintElement = document.getElementById("questHint");
+const battlePanel = document.getElementById("battlePanel");
+const battleBossName = document.getElementById("battleBossName");
+const battleBossHpText = document.getElementById("battleBossHpText");
+const battleBossHpFill = document.getElementById("battleBossHpFill");
+const battleBossPhase = document.getElementById("battleBossPhase");
+const battleHint = document.getElementById("battleHint");
+const toastContainer = document.getElementById("toastContainer");
 const playerHpLabel = document.getElementById("playerHpLabel");
 const bossHpLabel = document.getElementById("bossHpLabel");
 const statusElement = document.getElementById("status");
@@ -24,9 +38,12 @@ const worldMap = document.getElementById("worldMap");
 const worldMapMessage = document.getElementById("worldMapMessage");
 const worldMapIslands = document.getElementById("worldMapIslands");
 const upgradeMenu = document.getElementById("upgradeMenu");
+const upgradeWallet = document.getElementById("upgradeWallet");
 const upgradeMessage = document.getElementById("upgradeMessage");
 const upgradeChoices = document.getElementById("upgradeChoices");
 const continueMapButton = document.getElementById("continueMapButton");
+const introOverlay = document.getElementById("introOverlay");
+const startAdventureButton = document.getElementById("startAdventureButton");
 
 const gameWidth = 720;
 const gameHeight = 480;
@@ -77,6 +94,7 @@ let powerUpTimer = 0;
 let shieldCharges = 0;
 let finalIslandActive = false;
 let bossDefeatToken = 0;
+let introActive = true;
 
 const levelConfig = {
   levels: [
@@ -199,6 +217,12 @@ function startGame() {
   crew = [];
   purchasedUpgrades = [];
   startLevel();
+}
+
+function startAdventure() {
+  introActive = false;
+  introOverlay.classList.add("hidden");
+  updateHud("Collect coins to begin your quest.");
 }
 
 function startLevel() {
@@ -411,6 +435,131 @@ function updateHud(message) {
   activeFruitElement.textContent = getActiveFruitText();
   statusElement.textContent = message;
   updateHpLabels();
+  updateHeartHealth();
+  updateQuestPanel();
+  updateBattlePanel();
+}
+
+function updateHeartHealth() {
+  const currentHearts = Math.max(0, health);
+  heartHealthElement.textContent = currentHearts > 0 ? "\u2764\uFE0F".repeat(currentHearts) : "No hearts";
+  heartHealthElement.title = `${health}/${maxHealth} HP`;
+}
+
+function updateQuestPanel() {
+  const level = levels[currentLevelIndex];
+  const coinGoal = finalIslandActive ? 0 : level.coinCount;
+
+  questIslandElement.textContent = finalIslandActive ? "Final Treasure Island" : level.name;
+  questObjectiveElement.textContent = getQuestObjective();
+  questCoinsElement.textContent = score;
+  questCoinGoalElement.textContent = coinGoal;
+  questFragmentsElement.textContent = `${mapFragments}/3`;
+  questHintElement.textContent = getQuestHint();
+}
+
+function getQuestObjective() {
+  if (finalIslandActive) {
+    return "Open the Grand Treasure";
+  }
+
+  if (isUpgradeMenuOpen()) {
+    return "Buy upgrades or continue";
+  }
+
+  if (isWorldMapOpen()) {
+    return mapFragments >= 3 ? "Sail to Treasure Island" : "Sail to next island";
+  }
+
+  if (isRouteQuestionOpen()) {
+    return "Solve the route clue";
+  }
+
+  if (bossActive) {
+    return "Boss appeared! Defeat the boss";
+  }
+
+  if (score < levels[currentLevelIndex].coinCount) {
+    return "Collect all coins";
+  }
+
+  if (routeUnlocked) {
+    return "Open World Map";
+  }
+
+  return "Explore the island";
+}
+
+function getQuestHint() {
+  if (introActive) {
+    return "Press Start Adventure when ready.";
+  }
+
+  if (finalIslandActive) {
+    return "Reach the Grand Treasure and open it.";
+  }
+
+  if (isUpgradeMenuOpen()) {
+    return "Spend wallet coins or open the World Map.";
+  }
+
+  if (isWorldMapOpen()) {
+    return "Choose the highlighted unlocked island.";
+  }
+
+  if (isRouteQuestionOpen()) {
+    return "Use the island clue to choose the correct answer.";
+  }
+
+  if (bossActive) {
+    return "Attack during rest or stun. Dash away during chase.";
+  }
+
+  if (score < levels[currentLevelIndex].coinCount) {
+    return "Collect every visible coin to summon the boss.";
+  }
+
+  return "Follow the next panel or map prompt.";
+}
+
+function updateBattlePanel() {
+  if (!bossActive || !boss) {
+    battlePanel.classList.add("hidden");
+    return;
+  }
+
+  const hpPercent = boss.maxHp > 0 ? (boss.hp / boss.maxHp) * 100 : 0;
+
+  battleBossName.textContent = boss.name;
+  battleBossHpText.textContent = `HP: ${boss.hp} / ${boss.maxHp}`;
+  battleBossHpFill.style.width = `${Math.max(0, hpPercent)}%`;
+  battleBossPhase.textContent = getBossPhaseLabel();
+  battleHint.textContent = boss.stunTimer > 0 || boss.phase === "rest"
+    ? "Attack now!"
+    : "Attack during rest or stun!";
+  battlePanel.classList.remove("hidden");
+}
+
+function getBossPhaseLabel() {
+  if (!boss) {
+    return "None";
+  }
+
+  if (boss.stunTimer > 0) {
+    return "Stunned";
+  }
+
+  return boss.phase === "rest" ? "Resting" : "Chasing";
+}
+
+function showToast(message) {
+  const toast = document.createElement("div");
+
+  toast.className = "toast";
+  toast.textContent = message;
+  toastContainer.appendChild(toast);
+
+  setTimeout(() => toast.remove(), 2500);
 }
 
 function drawSprites() {
@@ -501,7 +650,7 @@ function movePlayer(deltaTime) {
 }
 
 function dashPlayer() {
-  if (gameOver || isRouteQuestionOpen() || isWorldMapOpen() || isUpgradeMenuOpen()) {
+  if (introActive || gameOver || isRouteQuestionOpen() || isWorldMapOpen() || isUpgradeMenuOpen()) {
     return;
   }
 
@@ -618,6 +767,7 @@ function checkCollisions(deltaTime) {
     if (!coin.collected && isTouching(player, coin)) {
       coin.collected = true;
       score += 1;
+      showToast("Coin collected!");
       if (score === level.coinCount) {
         startBossEvent(level);
       } else {
@@ -657,6 +807,7 @@ function startBossEvent(level) {
   bossEventStarted = true;
   bossActive = true;
   createBoss(level.boss);
+  showToast("Boss appeared!");
   updateHud(`${level.boss.name} appeared! Press Space near the boss to attack.`);
 }
 
@@ -685,6 +836,7 @@ function removeBoss() {
 
   boss = null;
   bossHpLabel.classList.add("hidden");
+  updateBattlePanel();
 }
 
 function updateBoss(deltaTime) {
@@ -704,7 +856,7 @@ function updateBoss(deltaTime) {
     return;
   }
 
-  statusElement.textContent = getBossFightStatus();
+  updateHud(getBossFightStatus());
 }
 
 function updateBossTimers(deltaTime) {
@@ -772,7 +924,7 @@ function canBossDamagePlayer() {
 }
 
 function attackBoss() {
-  if (!bossActive || !boss || gameOver) {
+  if (introActive || !bossActive || !boss || gameOver) {
     return;
   }
 
@@ -803,6 +955,7 @@ function attackBoss() {
   showSlashEffect(attackArea, attackDirection);
 
   if (!result.hit) {
+    showToast("Move closer to attack the boss!");
     updateHud("Move closer to attack the boss!");
     return;
   }
@@ -811,6 +964,7 @@ function attackBoss() {
   boss.stunTimer = bossStunDuration;
   playBossHitEffect();
   showFloatingText("-1 HP", boss.x + 5, boss.y - 10, "damage");
+  showToast("Boss hit!");
   updateHud(`${boss.name} hit! Boss HP: ${boss.hp}/${boss.maxHp}`);
 
   if (result.defeated) {
@@ -826,6 +980,7 @@ function finishBossEvent() {
   bossDefeatToken = defeatToken;
   bossActive = false;
   attackCooldown = 0;
+  showToast("Boss defeated!");
 
   if (defeatedBoss && defeatedBoss.element) {
     defeatedBoss.element.classList.add("defeated");
@@ -912,11 +1067,13 @@ function activateMysteryFruit(fruit) {
   if (fruit.id === "shield") {
     shieldCharges = 1;
     powerUpTimer = 0;
+    showToast("Shield Fruit active!");
     updateHud("Shield Fruit activated! It will block one hit.");
     return;
   }
 
   powerUpTimer = 5;
+  showToast(`${fruit.name} active!`);
   updateHud(`${fruit.name} activated for 5 seconds!`);
 }
 
@@ -962,6 +1119,7 @@ function pullNearbyCoins(deltaTime) {
 function expirePowerUp() {
   activePowerUp = null;
   powerUpTimer = 0;
+  showToast("Fruit effect ended.");
   updateHud("Mystery Fruit effect faded.");
 }
 
@@ -1003,6 +1161,7 @@ function showRouteQuestion(level) {
   });
 
   routePanel.classList.remove("hidden");
+  updateQuestPanel();
 }
 
 function answerRouteQuestion(choiceIndex) {
@@ -1014,12 +1173,14 @@ function answerRouteQuestion(choiceIndex) {
     routePanel.classList.add("hidden");
     chestElement.classList.remove("hidden");
     chestElement.classList.add("open");
+    showToast("Route unlocked!");
     updateHud(result.message);
     completeLevel();
     return;
   }
 
   health = result.health;
+  showToast("Wrong answer! HP -1");
   updateHud(result.message);
 
   if (health <= 0) {
@@ -1043,6 +1204,7 @@ function takeDamage(statusMessage, gameOverMessage, options = {}) {
 
   if (result.blocked) {
     activePowerUp = null;
+    showToast("Shield blocked damage!");
     updateHud("Shield Fruit blocked the hit!");
     return;
   }
@@ -1063,6 +1225,7 @@ function takeDamage(statusMessage, gameOverMessage, options = {}) {
     showFloatingText("-1 HP", player.x + 2, player.y - 9, "damage");
   }
 
+  showToast("HP -1");
   updateHud(statusMessage);
 
   if (result.gameOver) {
@@ -1103,6 +1266,7 @@ function completeLevel() {
   totalCoins += score;
   mapFragments += 1;
   gameOver = true;
+  showToast("Map fragment collected!");
   updateHud([
     `Sea Map Fragment found on ${completedLevelName}!`,
     `${score} coins added to your wallet.`,
@@ -1114,9 +1278,11 @@ function completeLevel() {
 
 function showUpgradeMenu() {
   renderUpgradeChoices();
+  upgradeWallet.textContent = `Wallet: ${totalCoins} coins`;
   upgradeMessage.textContent = getUpgradeMenuMessage();
   continueMapButton.textContent = "Open World Map";
   upgradeMenu.classList.remove("hidden");
+  updateQuestPanel();
 }
 
 function getUpgradeMenuMessage() {
@@ -1131,6 +1297,7 @@ function getUpgradeMenuMessage() {
 
 function renderUpgradeChoices() {
   upgradeChoices.innerHTML = "";
+  upgradeWallet.textContent = `Wallet: ${totalCoins} coins`;
 
   shipUpgrades.forEach((upgrade) => {
     const isPurchased = purchasedUpgrades.includes(upgrade.id);
@@ -1141,13 +1308,15 @@ function renderUpgradeChoices() {
     card.className = "upgrade-card";
     card.innerHTML = `
       <div>
-        <div class="upgrade-name">${upgrade.name} - ${upgrade.cost} coins</div>
-        <div class="upgrade-description">${upgrade.description}</div>
+        <div class="upgrade-name">${upgrade.name}</div>
+        <div class="upgrade-price">Price: ${upgrade.cost} coins</div>
+        <div class="upgrade-description">Effect: ${upgrade.description}</div>
+        <div class="upgrade-owned">${isPurchased ? "Owned" : ""}</div>
       </div>
     `;
 
     button.type = "button";
-    button.textContent = isPurchased ? "Purchased" : "Buy";
+    button.textContent = isPurchased ? "Owned" : "Buy";
     button.disabled = isPurchased;
     button.addEventListener("click", () => buyUpgrade(upgrade.id));
 
@@ -1169,6 +1338,7 @@ function buyUpgrade(upgradeId) {
   }
 
   if (result.reason === "not-enough-coins") {
+    showToast("Not enough coins!");
     upgradeMessage.textContent = "Not enough coins for that upgrade.";
     return;
   }
@@ -1176,8 +1346,10 @@ function buyUpgrade(upgradeId) {
   totalCoins = result.wallet;
   purchasedUpgrades = result.purchasedUpgrades;
   applyUpgradeEffect(upgradeId);
+  showToast("Upgrade purchased!");
   updateHud(`${upgrade.name} purchased!`);
   upgradeMessage.textContent = `${upgrade.name} applied immediately. Wallet: ${totalCoins} coins.`;
+  upgradeWallet.textContent = `Wallet: ${totalCoins} coins`;
   renderUpgradeChoices();
 }
 
@@ -1257,6 +1429,7 @@ function showWorldMap() {
   });
 
   worldMap.classList.remove("hidden");
+  updateQuestPanel();
 }
 
 function getWorldMapMessage() {
@@ -1374,7 +1547,7 @@ function gameLoop(currentTime) {
   const deltaTime = lastFrameTime ? (currentTime - lastFrameTime) / 1000 : 0;
   lastFrameTime = currentTime;
 
-  if (!gameOver && !isRouteQuestionOpen() && !isWorldMapOpen() && !isUpgradeMenuOpen()) {
+  if (!introActive && !gameOver && !isRouteQuestionOpen() && !isWorldMapOpen() && !isUpgradeMenuOpen()) {
     attackCooldown = Math.max(0, attackCooldown - deltaTime);
     dashCooldown = Math.max(0, dashCooldown - deltaTime);
     movePlayer(deltaTime);
@@ -1390,6 +1563,13 @@ function gameLoop(currentTime) {
 
 document.addEventListener("keydown", (event) => {
   const key = event.key.toLowerCase();
+
+  if (introActive) {
+    if (["arrowup", "arrowdown", "arrowleft", "arrowright", "w", "a", "s", "d", " "].includes(key) || event.key === "Shift") {
+      event.preventDefault();
+    }
+    return;
+  }
 
   if (event.key === "Shift") {
     event.preventDefault();
@@ -1419,6 +1599,7 @@ document.addEventListener("keyup", (event) => {
 restartButton.addEventListener("click", startGame);
 overlayRestartButton.addEventListener("click", handleOverlayButton);
 continueMapButton.addEventListener("click", continueToWorldMap);
+startAdventureButton.addEventListener("click", startAdventure);
 
 startGame();
 gameLoop();
