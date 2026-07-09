@@ -414,11 +414,11 @@ function shakeGameArea() {
 function completeLevel() {
   mapFragments += 1;
 
-  if (currentLevelIndex === levels.length - 1) {
+  if (mapFragments === 3) {
     overlayAction = "restart";
     endGame(
-      "Adventure Completed",
-      "The Ancient Compass reveals the Treasure Island! Captain Hat earned."
+      "Final Treasure Island Unlocked",
+      "All map fragments collected. The path to Treasure Island is revealed!"
     );
   } else {
     overlayAction = "next";
