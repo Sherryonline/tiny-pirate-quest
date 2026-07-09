@@ -390,6 +390,18 @@ h1 {
   animation: slash-pop 0.24s ease-out forwards;
 }
 
+.slash-effect.left {
+  animation-name: slash-pop-left;
+}
+
+.slash-effect.up {
+  animation-name: slash-pop-up;
+}
+
+.slash-effect.down {
+  animation-name: slash-pop-down;
+}
+
 .floating-text {
   position: absolute;
   z-index: 9;
@@ -791,6 +803,39 @@ button:hover {
   to {
     opacity: 0;
     transform: translate(20px, -10px) scale(1.3) rotate(22deg);
+  }
+}
+
+@keyframes slash-pop-left {
+  from {
+    opacity: 0.95;
+    transform: scale(0.6) rotate(155deg);
+  }
+  to {
+    opacity: 0;
+    transform: translate(-20px, -10px) scale(1.3) rotate(202deg);
+  }
+}
+
+@keyframes slash-pop-up {
+  from {
+    opacity: 0.95;
+    transform: scale(0.6) rotate(-115deg);
+  }
+  to {
+    opacity: 0;
+    transform: translate(0, -22px) scale(1.3) rotate(-68deg);
+  }
+}
+
+@keyframes slash-pop-down {
+  from {
+    opacity: 0.95;
+    transform: scale(0.6) rotate(65deg);
+  }
+  to {
+    opacity: 0;
+    transform: translate(0, 22px) scale(1.3) rotate(112deg);
   }
 }
 

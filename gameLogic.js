@@ -112,6 +112,54 @@
     return Math.min(health + 1, maxHealth);
   }
 
+  function getAttackArea(player, direction, options) {
+    const size = options.spriteSize;
+    const range = options.range;
+
+    if (direction === "left") {
+      return {
+        x: player.x - range,
+        y: player.y,
+        width: range,
+        height: size
+      };
+    }
+
+    if (direction === "up") {
+      return {
+        x: player.x,
+        y: player.y - range,
+        width: size,
+        height: range
+      };
+    }
+
+    if (direction === "down") {
+      return {
+        x: player.x,
+        y: player.y + size,
+        width: size,
+        height: range
+      };
+    }
+
+    return {
+      x: player.x + size,
+      y: player.y,
+      width: range,
+      height: size
+    };
+  }
+
+  function rectanglesOverlap(a, b) {
+    return (
+      a.x < b.x + b.width &&
+      a.x + a.width > b.x &&
+      a.y < b.y + b.height &&
+      a.y + a.height > b.y
+    );
+  }
+
   function attackBoss(player, boss, options) {
     if (options.cooldown > 0) {
       return {
@@ -123,17 +171,15 @@
       };
     }
 
-    const playerCenter = {
-      x: player.x + options.spriteSize / 2,
-      y: player.y + options.spriteSize / 2
+    const attackArea = options.attackArea || getAttackArea(player, options.direction || "right", options);
+    const bossArea = {
+      x: boss.x,
+      y: boss.y,
+      width: options.spriteSize,
+      height: options.spriteSize
     };
-    const bossCenter = {
-      x: boss.x + options.spriteSize / 2,
-      y: boss.y + options.spriteSize / 2
-    };
-    const distance = Math.hypot(playerCenter.x - bossCenter.x, playerCenter.y - bossCenter.y);
 
-    if (distance > options.range) {
+    if (!rectanglesOverlap(attackArea, bossArea)) {
       return {
         hit: false,
         bossHp: boss.hp,
@@ -165,6 +211,7 @@
     getUnlockedIslandIndex,
     getNextIslandName,
     applyCookHeal,
+    getAttackArea,
     attackBoss
   };
 });

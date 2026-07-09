@@ -129,3 +129,45 @@ test("boss attack requires range and cooldown", () => {
     "cooldown"
   );
 });
+
+test("boss attack uses directional attack area", () => {
+  const player = { x: 100, y: 100 };
+  const options = {
+    spriteSize: 34,
+    range: 80,
+    damage: 1,
+    cooldown: 0,
+    hitCooldown: 0.6,
+    missCooldown: 0.2
+  };
+
+  assert.deepEqual(GameLogic.getAttackArea(player, "right", options), {
+    x: 134,
+    y: 100,
+    width: 80,
+    height: 34
+  });
+  assert.deepEqual(GameLogic.getAttackArea(player, "left", options), {
+    x: 20,
+    y: 100,
+    width: 80,
+    height: 34
+  });
+  assert.deepEqual(GameLogic.getAttackArea(player, "up", options), {
+    x: 100,
+    y: 20,
+    width: 34,
+    height: 80
+  });
+  assert.deepEqual(GameLogic.getAttackArea(player, "down", options), {
+    x: 100,
+    y: 134,
+    width: 34,
+    height: 80
+  });
+
+  assert.equal(GameLogic.attackBoss(player, { x: 150, y: 105, hp: 2 }, { ...options, direction: "right" }).reason, "hit");
+  assert.equal(GameLogic.attackBoss(player, { x: 150, y: 105, hp: 2 }, { ...options, direction: "left" }).reason, "out-of-range");
+  assert.equal(GameLogic.attackBoss(player, { x: 105, y: 50, hp: 2 }, { ...options, direction: "up" }).reason, "hit");
+  assert.equal(GameLogic.attackBoss(player, { x: 105, y: 160, hp: 2 }, { ...options, direction: "down" }).reason, "hit");
+});

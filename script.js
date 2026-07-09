@@ -67,7 +67,7 @@ let bossActive = false;
 let bossEventStarted = false;
 let attackCooldown = 0;
 let dashCooldown = 0;
-let lastMoveDirection = { x: 1, y: 0 };
+let lastDirection = "right";
 let activePowerUp = null;
 let powerUpTimer = 0;
 let shieldCharges = 0;
@@ -216,7 +216,7 @@ function startLevel() {
   bossDefeatToken += 1;
   attackCooldown = 0;
   dashCooldown = 0;
-  lastMoveDirection = { x: 1, y: 0 };
+  lastDirection = "right";
   activePowerUp = null;
   powerUpTimer = 0;
   shieldCharges = 0;
@@ -348,7 +348,7 @@ function startFinalTreasureIsland() {
   bossDefeatToken += 1;
   attackCooldown = 0;
   dashCooldown = 0;
-  lastMoveDirection = { x: 1, y: 0 };
+  lastDirection = "right";
   playerElement.classList.remove("damaged", "dashing");
   routePanel.classList.add("hidden");
   worldMap.classList.add("hidden");
@@ -486,10 +486,6 @@ function movePlayer(deltaTime) {
     moveY *= Math.SQRT1_2;
   }
 
-  if (moveX !== 0 || moveY !== 0) {
-    lastMoveDirection = { x: moveX, y: moveY };
-  }
-
   playerX += moveX * getPlayerSpeed() * deltaTime;
   playerY += moveY * getPlayerSpeed() * deltaTime;
 
@@ -510,8 +506,10 @@ function dashPlayer() {
     return;
   }
 
-  playerX = keepInside(playerX + lastMoveDirection.x * dashDistance, gameWidth - spriteSize);
-  playerY = keepInside(playerY + lastMoveDirection.y * dashDistance, gameHeight - spriteSize);
+  const dashDirection = getDirectionVector(lastDirection);
+
+  playerX = keepInside(playerX + dashDirection.x * dashDistance, gameWidth - spriteSize);
+  playerY = keepInside(playerY + dashDirection.y * dashDistance, gameHeight - spriteSize);
   player.x = playerX;
   player.y = playerY;
   dashCooldown = dashCooldownDuration;
@@ -525,6 +523,34 @@ function playDashEffect() {
   void playerElement.offsetWidth;
   playerElement.classList.add("dashing");
   setTimeout(() => playerElement.classList.remove("dashing"), 180);
+}
+
+function getDirectionVector(direction) {
+  if (direction === "left") {
+    return { x: -1, y: 0 };
+  }
+
+  if (direction === "up") {
+    return { x: 0, y: -1 };
+  }
+
+  if (direction === "down") {
+    return { x: 0, y: 1 };
+  }
+
+  return { x: 1, y: 0 };
+}
+
+function updateLastDirection(key) {
+  if (key === "arrowup" || key === "w") {
+    lastDirection = "up";
+  } else if (key === "arrowdown" || key === "s") {
+    lastDirection = "down";
+  } else if (key === "arrowleft" || key === "a") {
+    lastDirection = "left";
+  } else if (key === "arrowright" || key === "d") {
+    lastDirection = "right";
+  }
 }
 
 function moveEnemies(deltaTime) {
@@ -710,9 +736,15 @@ function attackBoss() {
     return;
   }
 
+  const attackArea = GameLogic.getAttackArea(player, lastDirection, {
+    spriteSize,
+    range: bossAttackRange
+  });
   const result = GameLogic.attackBoss(player, boss, {
     spriteSize,
     range: bossAttackRange,
+    direction: lastDirection,
+    attackArea,
     damage: 1,
     cooldown: attackCooldown,
     hitCooldown: 0.6,
@@ -725,7 +757,7 @@ function attackBoss() {
     return;
   }
 
-  showSlashEffect();
+  showSlashEffect(attackArea);
 
   if (!result.hit) {
     updateHud("Move closer to attack the boss!");
@@ -785,13 +817,13 @@ function getBossDefeatMessage(bossName) {
   return `${bossName} defeated! Read the island clue.`;
 }
 
-function showSlashEffect() {
+function showSlashEffect(attackArea) {
   const slash = document.createElement("div");
 
-  slash.className = "slash-effect";
+  slash.className = `slash-effect ${lastDirection}`;
   slash.textContent = "⚔";
-  slash.style.left = `${keepInside(player.x + 22, gameWidth - 34)}px`;
-  slash.style.top = `${keepInside(player.y - 3, gameHeight - 34)}px`;
+  slash.style.left = `${keepInside(attackArea.x + attackArea.width / 2 - 17, gameWidth - 34)}px`;
+  slash.style.top = `${keepInside(attackArea.y + attackArea.height / 2 - 17, gameHeight - 34)}px`;
   gameArea.appendChild(slash);
   setTimeout(() => slash.remove(), 260);
 }
@@ -1332,6 +1364,7 @@ document.addEventListener("keydown", (event) => {
 
   if (["arrowup", "arrowdown", "arrowleft", "arrowright", "w", "a", "s", "d"].includes(key)) {
     event.preventDefault();
+    updateLastDirection(key);
     keys[key] = true;
   }
 });
