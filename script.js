@@ -28,8 +28,8 @@ const upgradeMessage = document.getElementById("upgradeMessage");
 const upgradeChoices = document.getElementById("upgradeChoices");
 const continueMapButton = document.getElementById("continueMapButton");
 
-const gameWidth = 600;
-const gameHeight = 400;
+const gameWidth = 720;
+const gameHeight = 480;
 const spriteSize = 34;
 const basePlayerSpeed = 220;
 const baseMaxHealth = 3;
@@ -41,6 +41,8 @@ const bossChaseDuration = 3;
 const bossRestDuration = 1;
 const dashDistance = 90;
 const dashCooldownDuration = 2;
+const chestPosition = { x: 650, y: 410 };
+const playerStartPosition = { x: 35, y: 410 };
 
 let player;
 let playerX;
@@ -86,8 +88,8 @@ const levelConfig = {
       question: "Which island sign points to the next sea route?",
       choices: ["Clouds", "Lava", "Fog"],
       correctChoice: 0,
-      boss: { name: "Giant Crab", icon: "🦀", x: 280, y: 120, speed: 95, hp: 3 },
-      enemies: [{ x: 280, y: 190, minX: 120, maxX: 445, speed: 120 }],
+      boss: { name: "Giant Crab", icon: "🦀", x: 350, y: 145, speed: 95, hp: 3 },
+      enemies: [{ x: 330, y: 235, minX: 145, maxX: 585, speed: 120 }],
       lavaTraps: []
     },
     {
@@ -98,10 +100,10 @@ const levelConfig = {
       question: "What should the pirate follow through Mist Island?",
       choices: ["Coconut trees", "Fog", "Volcano smoke"],
       correctChoice: 1,
-      boss: { name: "Fog Ghost", icon: "👻", x: 300, y: 90, speed: 105, hp: 5 },
+      boss: { name: "Fog Ghost", icon: "👻", x: 360, y: 110, speed: 105, hp: 5 },
       enemies: [
-        { x: 160, y: 120, minX: 80, maxX: 300, speed: 135 },
-        { x: 430, y: 255, minX: 310, maxX: 520, speed: 150 }
+        { x: 180, y: 145, minX: 80, maxX: 350, speed: 135 },
+        { x: 540, y: 325, minX: 410, maxX: 655, speed: 150 }
       ],
       lavaTraps: []
     },
@@ -113,15 +115,15 @@ const levelConfig = {
       question: "What marks the final treasure route?",
       choices: ["Ocean waves", "Coconut leaves", "Volcano smoke"],
       correctChoice: 2,
-      boss: { name: "Lava Beast", icon: "🔥", x: 300, y: 90, speed: 120, hp: 7 },
+      boss: { name: "Lava Beast", icon: "🔥", x: 365, y: 115, speed: 120, hp: 7 },
       enemies: [
-        { x: 145, y: 110, minX: 60, maxX: 285, speed: 150 },
-        { x: 420, y: 265, minX: 300, maxX: 525, speed: 165 }
+        { x: 170, y: 140, minX: 70, maxX: 340, speed: 150 },
+        { x: 560, y: 330, minX: 410, maxX: 660, speed: 165 }
       ],
       lavaTraps: [
-        { x: 210, y: 135 },
-        { x: 360, y: 190 },
-        { x: 235, y: 275 }
+        { x: 255, y: 175 },
+        { x: 445, y: 240 },
+        { x: 305, y: 360 }
       ]
     }
   ]
@@ -164,27 +166,27 @@ const mysteryFruits = [
 ];
 
 const fruitPositions = [
-  { x: 118, y: 150 },
-  { x: 452, y: 132 },
-  { x: 318, y: 265 }
+  { x: 135, y: 175 },
+  { x: 545, y: 155 },
+  { x: 385, y: 320 }
 ];
 
 const coinPositions = [
-  { x: 80, y: 70 },
-  { x: 185, y: 45 },
-  { x: 315, y: 80 },
-  { x: 470, y: 55 },
-  { x: 530, y: 170 },
-  { x: 410, y: 250 },
-  { x: 285, y: 320 },
-  { x: 145, y: 285 },
-  { x: 55, y: 210 },
-  { x: 250, y: 185 },
-  { x: 535, y: 105 },
-  { x: 365, y: 340 },
-  { x: 95, y: 345 },
-  { x: 515, y: 275 },
-  { x: 330, y: 145 }
+  { x: 85, y: 70 },
+  { x: 215, y: 50 },
+  { x: 370, y: 85 },
+  { x: 555, y: 65 },
+  { x: 650, y: 190 },
+  { x: 500, y: 295 },
+  { x: 345, y: 390 },
+  { x: 165, y: 350 },
+  { x: 65, y: 255 },
+  { x: 305, y: 225 },
+  { x: 645, y: 115 },
+  { x: 445, y: 425 },
+  { x: 95, y: 420 },
+  { x: 615, y: 350 },
+  { x: 405, y: 165 }
 ];
 
 const keys = {};
@@ -203,7 +205,7 @@ function startLevel() {
   const level = levels[currentLevelIndex];
 
   finalIslandActive = false;
-  player = { x: 35, y: 330 };
+  player = { ...playerStartPosition };
   playerX = player.x;
   playerY = player.y;
   score = 0;
@@ -234,8 +236,8 @@ function startLevel() {
   removeBoss();
   removeMysteryFruit();
   removeGrandTreasure();
-  chestElement.style.left = "535px";
-  chestElement.style.top = "335px";
+  chestElement.style.left = `${chestPosition.x}px`;
+  chestElement.style.top = `${chestPosition.y}px`;
 
   applyLevelStyle(level);
   createCoins(level.coinCount);
@@ -339,7 +341,7 @@ function removeMysteryFruit() {
 function startFinalTreasureIsland() {
   finalIslandActive = true;
   currentLevelIndex = levels.length - 1;
-  player = { x: 35, y: 330 };
+  player = { ...playerStartPosition };
   playerX = player.x;
   playerY = player.y;
   score = 0;
@@ -383,8 +385,8 @@ function createGrandTreasure() {
   gameArea.appendChild(element);
 
   grandTreasure = {
-    x: 470,
-    y: 180,
+    x: 585,
+    y: 235,
     element
   };
 }
@@ -642,8 +644,7 @@ function checkCollisions(deltaTime) {
     });
   }
 
-  const chest = { x: 535, y: 335 };
-  if (routeUnlocked && isTouching(player, chest)) {
+  if (routeUnlocked && isTouching(player, chestPosition)) {
     completeLevel();
   }
 }

@@ -13,7 +13,7 @@ body {
 }
 
 .game-wrap {
-  width: 660px;
+  width: 780px;
   padding: 20px;
   text-align: center;
 }
@@ -37,8 +37,8 @@ h1 {
 
 .game-area {
   position: relative;
-  width: 600px;
-  height: 400px;
+  width: 720px;
+  height: 480px;
   margin: 0 auto;
   overflow: hidden;
   background:
