@@ -4,6 +4,14 @@ Tiny Pirate Quest is a simple one-player 2D browser adventure game built with HT
 
 The player controls a young pirate, collects coins across island levels, defeats island bosses, unlocks sea routes, gathers map fragments, upgrades the ship, recruits crew members, and finally reaches Treasure Island.
 
+## Play Online
+
+After GitHub Pages deployment is enabled successfully, the game will be available here:
+
+```text
+https://sherryonline.github.io/tiny-pirate-quest/
+```
+
 ## Game Objective
 
 ```text
@@ -207,5 +215,8 @@ Playable prototype with progression, boss fights, upgrades, crew, power-ups, fin
 |---|---|
 | Sherryonline | Project owner and creator |
 | Codex | AI coding assistant for vibe coding support |
+| Game Planner Agent | AI agent used for feature planning and implementation steps |
+| Game Feature Implementer Agent | AI agent used for game feature implementation support |
+| Game QA Tester Agent | AI agent used for test scenario, bug checklist, and regression review |
 
-> Note: GitHub's automatic Contributors panel is based on commit authors. Codex is listed here because it was used as an AI coding assistant.
+> Note: GitHub's automatic Contributors panel is based on real GitHub commit authors. AI agents are listed here as project support contributors because they helped with planning, coding support, and testing guidance.
