@@ -40,6 +40,7 @@ let enemies;
 let lavaTraps;
 let boss;
 let mysteryFruit;
+let grandTreasure;
 let coins;
 let score;
 let health;
@@ -61,6 +62,7 @@ let bossEventStarted = false;
 let activePowerUp = null;
 let powerUpTimer = 0;
 let shieldCharges = 0;
+let finalIslandActive = false;
 
 const levelConfig = {
   levels: [
@@ -119,7 +121,7 @@ const worldMapRoute = [
   { name: "Coconut Island", icon: "🥥" },
   { name: "Mist Island", icon: "🌫️" },
   { name: "Volcano Island", icon: "🌋" },
-  { name: "Treasure Island", icon: "🏝️" }
+  { name: "Final Treasure Island", icon: "🏝️" }
 ];
 
 const shipUpgrades = [
@@ -188,6 +190,7 @@ function startGame() {
 function startLevel() {
   const level = levels[currentLevelIndex];
 
+  finalIslandActive = false;
   player = { x: 35, y: 330 };
   playerX = player.x;
   playerY = player.y;
@@ -215,6 +218,7 @@ function startLevel() {
   gameOverlay.classList.add("hidden");
   removeBoss();
   removeMysteryFruit();
+  removeGrandTreasure();
   chestElement.style.left = "535px";
   chestElement.style.top = "335px";
 
@@ -228,7 +232,7 @@ function startLevel() {
 }
 
 function applyLevelStyle(level) {
-  gameArea.classList.remove("level-coconut", "level-mist", "level-volcano");
+  gameArea.classList.remove("level-coconut", "level-mist", "level-volcano", "level-treasure");
   gameArea.classList.add(level.className);
 }
 
@@ -254,6 +258,7 @@ function createEnemies(enemySettings) {
   document.querySelectorAll(".extra-enemy").forEach((enemy) => enemy.remove());
   enemyElement.className = "sprite enemy";
   enemyElement.textContent = "🦀";
+  enemyElement.style.display = "grid";
 
   enemies = enemySettings.map((settings, index) => {
     const element = index === 0 ? enemyElement : document.createElement("div");
@@ -316,12 +321,68 @@ function removeMysteryFruit() {
   mysteryFruit = null;
 }
 
+function startFinalTreasureIsland() {
+  finalIslandActive = true;
+  currentLevelIndex = levels.length - 1;
+  player = { x: 35, y: 330 };
+  playerX = player.x;
+  playerY = player.y;
+  score = 0;
+  gameOver = false;
+  enemyHitCooldown = 0;
+  bossActive = false;
+  bossEventStarted = false;
+  routePanel.classList.add("hidden");
+  worldMap.classList.add("hidden");
+  upgradeMenu.classList.add("hidden");
+  gameOverlay.classList.add("hidden");
+  chestElement.classList.add("hidden");
+  enemyElement.style.display = "none";
+  removeBoss();
+  removeMysteryFruit();
+  removeGrandTreasure();
+  clearLevelObjects();
+  gameArea.classList.remove("level-coconut", "level-mist", "level-volcano");
+  gameArea.classList.add("level-treasure");
+  createGrandTreasure();
+  updateHud("Open the Grand Treasure to complete the adventure!");
+  drawSprites();
+}
+
+function clearLevelObjects() {
+  document.querySelectorAll(".coin, .lava, .extra-enemy").forEach((element) => element.remove());
+  coins = [];
+  lavaTraps = [];
+  enemies = [];
+}
+
+function createGrandTreasure() {
+  const element = document.createElement("div");
+  element.className = "sprite grand-treasure";
+  element.textContent = "💎";
+  gameArea.appendChild(element);
+
+  grandTreasure = {
+    x: 470,
+    y: 180,
+    element
+  };
+}
+
+function removeGrandTreasure() {
+  if (grandTreasure && grandTreasure.element) {
+    grandTreasure.element.remove();
+  }
+
+  grandTreasure = null;
+}
+
 function updateHud(message) {
   const level = levels[currentLevelIndex];
 
-  levelElement.textContent = `${currentLevelIndex + 1} - ${level.name}`;
+  levelElement.textContent = finalIslandActive ? "Final - Treasure Island" : `${currentLevelIndex + 1} - ${level.name}`;
   scoreElement.textContent = score;
-  coinGoalElement.textContent = level.coinCount;
+  coinGoalElement.textContent = finalIslandActive ? 0 : level.coinCount;
   totalCoinsElement.textContent = totalCoins;
   healthElement.textContent = health;
   fragmentsElement.textContent = mapFragments;
@@ -359,6 +420,11 @@ function drawSprites() {
   if (bossActive && boss) {
     boss.element.style.left = `${boss.x}px`;
     boss.element.style.top = `${boss.y}px`;
+  }
+
+  if (grandTreasure) {
+    grandTreasure.element.style.left = `${grandTreasure.x}px`;
+    grandTreasure.element.style.top = `${grandTreasure.y}px`;
   }
 }
 
@@ -409,6 +475,13 @@ function keepInside(value, max) {
 }
 
 function checkCollisions(deltaTime) {
+  if (finalIslandActive) {
+    if (grandTreasure && isTouching(player, grandTreasure)) {
+      completeFinalAdventure();
+    }
+    return;
+  }
+
   const level = levels[currentLevelIndex];
 
   if (mysteryFruit && !mysteryFruit.collected && isTouching(player, mysteryFruit)) {
@@ -894,7 +967,7 @@ function getNavigatorHint() {
 
   const nextIsland = worldMapRoute[Math.min(mapFragments, worldMapRoute.length - 1)];
 
-  if (!nextIsland || nextIsland.name === "Treasure Island") {
+  if (!nextIsland || nextIsland.name === "Final Treasure Island") {
     return "The final route shines beyond the last island.";
   }
 
@@ -935,16 +1008,24 @@ function selectWorldMapIsland(index) {
   worldMap.classList.add("hidden");
 
   if (index === 3) {
-    overlayAction = "restart";
-    endGame(
-      "Final Treasure Island Unlocked",
-      "All map fragments collected. The path to Treasure Island is revealed!"
-    );
+    startFinalTreasureIsland();
     return;
   }
 
   currentLevelIndex = index;
   startLevel();
+}
+
+function completeFinalAdventure() {
+  gameOver = true;
+  finalIslandActive = false;
+  removeGrandTreasure();
+  overlayAction = "restart";
+  endGame(
+    "Grand Treasure Found",
+    "Congratulations! You found the Grand Treasure and became the Captain of the Tiny Sea! Rewards: Pirate Captain Hat, Golden Compass, Grand Treasure."
+  );
+  overlayRestartButton.textContent = "Restart Adventure";
 }
 
 function isTouching(a, b) {
