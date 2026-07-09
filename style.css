@@ -43,7 +43,7 @@ h1 {
 
 .quest-panel {
   display: grid;
-  grid-template-columns: 1fr 1.35fr 0.7fr 0.8fr 1.45fr;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 8px;
   margin-bottom: 12px;
   padding: 10px;
@@ -64,6 +64,7 @@ h1 {
 }
 
 .quest-hint {
+  grid-column: span 2;
   min-width: 0;
 }
 
@@ -415,6 +416,19 @@ h1 {
   filter: drop-shadow(0 0 5px rgba(255, 255, 255, 0.75));
 }
 
+.npc {
+  z-index: 4;
+  font-size: 27px;
+  filter: drop-shadow(0 0 4px rgba(255, 243, 196, 0.9));
+}
+
+.side-quest-item {
+  z-index: 3;
+  font-size: 24px;
+  animation: fruit-bob 1.2s ease-in-out infinite alternate;
+  filter: drop-shadow(0 0 5px rgba(255, 255, 255, 0.75));
+}
+
 #player {
   z-index: 5;
   transition: left 0.08s ease-out, top 0.08s ease-out;
@@ -444,8 +458,51 @@ h1 {
   animation: boss-hit 0.5s linear;
 }
 
+.boss.invulnerable {
+  opacity: 0.38;
+  filter: drop-shadow(0 0 10px rgba(220, 240, 255, 0.85));
+}
+
+.boss.reforming,
+.boss.dash-warning {
+  animation: warning-pulse 0.25s linear infinite alternate;
+}
+
 .boss.defeated {
   animation: boss-defeat 0.75s ease-out forwards;
+}
+
+.lava-burst {
+  position: absolute;
+  z-index: 4;
+  width: 58px;
+  height: 58px;
+  pointer-events: none;
+  border-radius: 50%;
+}
+
+.lava-burst.warning {
+  background: rgba(255, 230, 70, 0.18);
+  border: 3px dashed #ffe66d;
+  animation: warning-pulse 0.32s linear infinite alternate;
+}
+
+.lava-burst.active {
+  background: radial-gradient(circle, #fff06a 0 18%, #ff7a2d 28% 58%, rgba(190, 32, 25, 0.1) 72%);
+  box-shadow: 0 0 18px rgba(255, 76, 29, 0.9);
+  animation: lava-pop 0.18s ease-out;
+}
+
+.dash-attack-warning {
+  position: absolute;
+  z-index: 4;
+  width: 78px;
+  height: 78px;
+  pointer-events: none;
+  border: 3px dashed #ffef70;
+  border-radius: 50%;
+  background: rgba(255, 76, 29, 0.13);
+  animation: warning-pulse 0.25s linear infinite alternate;
 }
 
 .hp-label {
@@ -505,6 +562,20 @@ h1 {
   animation-name: slash-pop-down;
 }
 
+.bullet-effect {
+  position: absolute;
+  z-index: 8;
+  width: 10px;
+  height: 10px;
+  display: grid;
+  place-items: center;
+  color: #fff8dc;
+  font-size: 18px;
+  line-height: 1;
+  pointer-events: none;
+  text-shadow: 0 0 6px #24311f;
+}
+
 .floating-text {
   position: absolute;
   z-index: 9;
@@ -533,6 +604,10 @@ h1 {
   height: 48px;
   font-size: 40px;
   animation: treasure-glow 1s ease-in-out infinite alternate;
+}
+
+.grand-treasure.locked {
+  filter: grayscale(1) drop-shadow(0 0 5px rgba(75, 31, 26, 0.7));
 }
 
 #chest {
@@ -615,6 +690,22 @@ h1 {
 
 .world-map p {
   margin: 0;
+}
+
+.ship-route {
+  position: relative;
+  height: 30px;
+  overflow: hidden;
+  border-top: 2px dashed rgba(47, 109, 71, 0.45);
+  border-bottom: 2px dashed rgba(47, 109, 71, 0.45);
+}
+
+.ship-icon {
+  position: absolute;
+  top: 1px;
+  left: 10px;
+  font-size: 24px;
+  animation: ship-sail 2.6s ease-in-out infinite;
 }
 
 .world-map-islands {
@@ -749,6 +840,36 @@ h1 {
   cursor: not-allowed;
   opacity: 0.6;
   background: #777;
+}
+
+.sailing-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 11;
+  display: grid;
+  place-items: center;
+  color: #24311f;
+  background: rgba(57, 159, 197, 0.42);
+  backdrop-filter: blur(2px);
+}
+
+.sailing-overlay.hidden {
+  display: none;
+}
+
+.sailing-card {
+  min-width: 250px;
+  padding: 18px;
+  background: #fff3c4;
+  border: 3px solid #8b5a2b;
+  border-radius: 8px;
+  box-shadow: 0 6px 0 rgba(0, 0, 0, 0.18);
+}
+
+.sailing-ship {
+  margin-bottom: 8px;
+  font-size: 36px;
+  animation: ship-rock 0.7s ease-in-out infinite alternate;
 }
 
 .game-overlay {
@@ -1040,6 +1161,49 @@ button:hover {
   }
   80% {
     transform: translate(4px, 2px);
+  }
+}
+
+@keyframes warning-pulse {
+  from {
+    opacity: 0.55;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1.04);
+  }
+}
+
+@keyframes lava-pop {
+  from {
+    transform: scale(0.7);
+  }
+  to {
+    transform: scale(1);
+  }
+}
+
+@keyframes ship-sail {
+  0% {
+    left: 8px;
+    transform: translateY(2px);
+  }
+  50% {
+    transform: translateY(-2px);
+  }
+  100% {
+    left: calc(100% - 34px);
+    transform: translateY(2px);
+  }
+}
+
+@keyframes ship-rock {
+  from {
+    transform: rotate(-4deg);
+  }
+  to {
+    transform: rotate(4deg);
   }
 }
 

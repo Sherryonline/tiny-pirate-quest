@@ -38,6 +38,22 @@
         <span class="panel-label">Fragments</span>
         <strong id="questFragments">0/3</strong>
       </div>
+      <div>
+        <span class="panel-label">Side Quest</span>
+        <strong id="questSideObjective">None</strong>
+      </div>
+      <div>
+        <span class="panel-label">Side Progress</span>
+        <strong id="questSideProgress">-</strong>
+      </div>
+      <div>
+        <span class="panel-label">Wallet</span>
+        <strong id="questWallet">0 coins</strong>
+      </div>
+      <div>
+        <span class="panel-label">Next Action</span>
+        <strong id="questNextAction">Collect coins</strong>
+      </div>
       <div class="quest-hint">
         <span class="panel-label">Hint</span>
         <strong id="questHint">Collect every coin on this island.</strong>
@@ -93,7 +109,16 @@
       <div id="worldMap" class="world-map hidden">
         <div class="world-map-title">World Map</div>
         <p id="worldMapMessage">Choose the next unlocked island.</p>
+        <div id="shipRoute" class="ship-route" aria-hidden="true">
+          <span class="ship-icon">⛵</span>
+        </div>
         <div id="worldMapIslands" class="world-map-islands"></div>
+      </div>
+      <div id="sailingOverlay" class="sailing-overlay hidden" aria-live="polite">
+        <div class="sailing-card">
+          <div class="sailing-ship">⛵</div>
+          <strong id="sailingMessage">Sailing...</strong>
+        </div>
       </div>
       <div id="upgradeMenu" class="upgrade-menu hidden">
         <div class="upgrade-title">Ship Upgrades</div>
@@ -109,7 +134,9 @@
           <div class="intro-controls">
             <div><strong>Move:</strong> WASD or Arrow Keys</div>
             <div><strong>Attack:</strong> Space</div>
+            <div><strong>Shoot:</strong> J after buying Pirate Gun</div>
             <div><strong>Dash:</strong> Shift</div>
+            <div><strong>Interact:</strong> E near NPCs</div>
             <div>Collect coins</div>
             <div>Defeat boss</div>
             <div>Solve route clue</div>
@@ -125,7 +152,7 @@
       </div>
     </section>
 
-    <p class="help">Use arrow keys or WASD to move, Shift to dash, and Space to attack bosses.</p>
+    <p class="help">Use arrow keys or WASD to move, Shift to dash, Space to attack bosses, J to shoot after buying Pirate Gun, and E to talk to NPCs.</p>
     <button id="restartButton" type="button">Restart Game</button>
   </main>
 

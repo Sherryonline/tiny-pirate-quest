@@ -15,6 +15,10 @@ const questObjectiveElement = document.getElementById("questObjective");
 const questCoinsElement = document.getElementById("questCoins");
 const questCoinGoalElement = document.getElementById("questCoinGoal");
 const questFragmentsElement = document.getElementById("questFragments");
+const questSideObjectiveElement = document.getElementById("questSideObjective");
+const questSideProgressElement = document.getElementById("questSideProgress");
+const questWalletElement = document.getElementById("questWallet");
+const questNextActionElement = document.getElementById("questNextAction");
 const questHintElement = document.getElementById("questHint");
 const battlePanel = document.getElementById("battlePanel");
 const battleBossName = document.getElementById("battleBossName");
@@ -37,6 +41,9 @@ const routeChoices = document.getElementById("routeChoices");
 const worldMap = document.getElementById("worldMap");
 const worldMapMessage = document.getElementById("worldMapMessage");
 const worldMapIslands = document.getElementById("worldMapIslands");
+const shipRoute = document.getElementById("shipRoute");
+const sailingOverlay = document.getElementById("sailingOverlay");
+const sailingMessage = document.getElementById("sailingMessage");
 const upgradeMenu = document.getElementById("upgradeMenu");
 const upgradeWallet = document.getElementById("upgradeWallet");
 const upgradeMessage = document.getElementById("upgradeMessage");
@@ -56,6 +63,8 @@ const bossLockOnRange = 130;
 const bossStunDuration = 0.8;
 const bossChaseDuration = 3;
 const bossRestDuration = 1;
+const gunCooldownDuration = 0.9;
+const bulletSpeed = 420;
 const dashDistance = 90;
 const dashCooldownDuration = 2;
 const chestPosition = { x: 650, y: 410 };
@@ -70,6 +79,10 @@ let boss;
 let mysteryFruit;
 let grandTreasure;
 let coins;
+let bullets = [];
+let npc = null;
+let sideQuestItems = [];
+let lavaBursts = [];
 let score;
 let health;
 let maxHealth = baseMaxHealth;
@@ -88,11 +101,13 @@ let bossActive = false;
 let bossEventStarted = false;
 let attackCooldown = 0;
 let dashCooldown = 0;
+let gunCooldown = 0;
 let lastDirection = "right";
 let activePowerUp = null;
 let powerUpTimer = 0;
 let shieldCharges = 0;
 let finalIslandActive = false;
+let ghostPirateDefeated = false;
 let bossDefeatToken = 0;
 let introActive = true;
 
@@ -106,7 +121,7 @@ const levelConfig = {
       question: "Which island sign points to the next sea route?",
       choices: ["Clouds", "Lava", "Fog"],
       correctChoice: 0,
-      boss: { name: "Giant Crab", icon: "🦀", x: 350, y: 145, speed: 95, hp: 3 },
+      boss: { name: "Giant Crab", type: "crab", icon: "\uD83E\uDD80", x: 350, y: 145, speed: 95, hp: 5 },
       enemies: [{ x: 330, y: 235, minX: 145, maxX: 585, speed: 120 }],
       lavaTraps: []
     },
@@ -118,7 +133,7 @@ const levelConfig = {
       question: "What should the pirate follow through Mist Island?",
       choices: ["Coconut trees", "Fog", "Volcano smoke"],
       correctChoice: 1,
-      boss: { name: "Fog Ghost", icon: "👻", x: 360, y: 110, speed: 105, hp: 5 },
+      boss: { name: "Fog Ghost", type: "fog", icon: "\uD83D\uDC7B", x: 360, y: 110, speed: 105, hp: 7 },
       enemies: [
         { x: 180, y: 145, minX: 80, maxX: 350, speed: 135 },
         { x: 540, y: 325, minX: 410, maxX: 655, speed: 150 }
@@ -133,7 +148,7 @@ const levelConfig = {
       question: "What marks the final treasure route?",
       choices: ["Ocean waves", "Coconut leaves", "Volcano smoke"],
       correctChoice: 2,
-      boss: { name: "Lava Beast", icon: "🔥", x: 365, y: 115, speed: 120, hp: 7 },
+      boss: { name: "Lava Beast", type: "lava", icon: "\uD83D\uDD25", x: 365, y: 115, speed: 120, hp: 9 },
       enemies: [
         { x: 170, y: 140, minX: 70, maxX: 340, speed: 150 },
         { x: 560, y: 330, minX: 410, maxX: 660, speed: 165 }
@@ -174,8 +189,92 @@ const shipUpgrades = [
     name: "Treasure Radar",
     cost: 6,
     description: "Show a hint when only a few coins remain."
+  },
+  {
+    id: "sharpSword",
+    name: "Sharp Sword",
+    cost: 9,
+    description: "Increase melee damage and swing size for close combat."
+  },
+  {
+    id: "pirateGun",
+    name: "Pirate Gun",
+    cost: 12,
+    description: "Unlock ranged attacks with J. Bullets have a cooldown."
+  },
+  {
+    id: "heartPotion",
+    name: "Heart Potion",
+    cost: 4,
+    description: "Restore 1 HP immediately. Can be bought multiple times.",
+    consumable: true
   }
 ];
+
+const ghostPirateBoss = {
+  name: "Ghost Pirate",
+  type: "ghostPirate",
+  icon: "☠️",
+  x: 370,
+  y: 150,
+  speed: 112,
+  hp: 12
+};
+
+const sideQuestConfigs = [
+  {
+    island: "Coconut Island",
+    npcName: "Shell Scout",
+    npcIcon: "🧑",
+    npc: { x: 95, y: 120 },
+    objective: "Collect 3 shells",
+    itemName: "shells",
+    itemIcon: "🐚",
+    target: 3,
+    reward: "3 coins",
+    positions: [
+      { x: 120, y: 285 },
+      { x: 420, y: 60 },
+      { x: 615, y: 300 }
+    ]
+  },
+  {
+    island: "Mist Island",
+    npcName: "Fog Keeper",
+    npcIcon: "🧙",
+    npc: { x: 105, y: 118 },
+    objective: "Collect 2 ghost lights",
+    itemName: "ghost lights",
+    itemIcon: "✨",
+    target: 2,
+    reward: "heal 1 HP",
+    positions: [
+      { x: 250, y: 340 },
+      { x: 600, y: 130 }
+    ]
+  },
+  {
+    island: "Volcano Island",
+    npcName: "Ash Miner",
+    npcIcon: "⛏️",
+    npc: { x: 115, y: 118 },
+    objective: "Collect 2 fire stones",
+    itemName: "fire stones",
+    itemIcon: "🪨",
+    target: 2,
+    reward: "4 coins and a boss hint",
+    positions: [
+      { x: 210, y: 300 },
+      { x: 590, y: 185 }
+    ]
+  }
+];
+
+let sideQuestState = sideQuestConfigs.map((quest) => ({
+  island: quest.island,
+  progress: 0,
+  rewarded: false
+}));
 
 const mysteryFruits = [
   { id: "wind", name: "Wind Fruit", icon: "🍃" },
@@ -216,6 +315,11 @@ function startGame() {
   maxHealth = baseMaxHealth;
   crew = [];
   purchasedUpgrades = [];
+  sideQuestState = sideQuestConfigs.map((quest) => ({
+    island: quest.island,
+    progress: 0,
+    rewarded: false
+  }));
   startLevel();
 }
 
@@ -244,6 +348,7 @@ function startLevel() {
   bossDefeatToken += 1;
   attackCooldown = 0;
   dashCooldown = 0;
+  gunCooldown = 0;
   lastDirection = "right";
   activePowerUp = null;
   powerUpTimer = 0;
@@ -257,9 +362,12 @@ function startLevel() {
   worldMap.classList.add("hidden");
   upgradeMenu.classList.add("hidden");
   gameOverlay.classList.add("hidden");
+  sailingOverlay.classList.add("hidden");
   removeBoss();
   removeMysteryFruit();
   removeGrandTreasure();
+  clearBullets();
+  clearLavaBursts();
   chestElement.style.left = `${chestPosition.x}px`;
   chestElement.style.top = `${chestPosition.y}px`;
 
@@ -268,6 +376,7 @@ function startLevel() {
   createEnemies(level.enemies);
   createLavaTraps(level.lavaTraps);
   createMysteryFruit();
+  createSideQuest(level);
   updateHud(`Collect all ${level.coinCount} coins!`);
   drawSprites();
 }
@@ -362,8 +471,54 @@ function removeMysteryFruit() {
   mysteryFruit = null;
 }
 
+function createSideQuest(level) {
+  clearSideQuestObjects();
+
+  const config = sideQuestConfigs.find((quest) => quest.island === level.name);
+
+  if (!config) {
+    return;
+  }
+
+  const npcElement = document.createElement("div");
+  npcElement.className = "sprite npc";
+  npcElement.textContent = config.npcIcon;
+  gameArea.appendChild(npcElement);
+
+  npc = {
+    ...config.npc,
+    name: config.npcName,
+    config,
+    element: npcElement
+  };
+
+  sideQuestItems = config.positions.map((position) => {
+    const element = document.createElement("div");
+    element.className = "sprite side-quest-item";
+    element.textContent = config.itemIcon;
+    gameArea.appendChild(element);
+
+    return {
+      ...position,
+      collected: false,
+      element
+    };
+  });
+}
+
+function clearSideQuestObjects() {
+  if (npc && npc.element) {
+    npc.element.remove();
+  }
+
+  sideQuestItems.forEach((item) => item.element.remove());
+  npc = null;
+  sideQuestItems = [];
+}
+
 function startFinalTreasureIsland() {
   finalIslandActive = true;
+  ghostPirateDefeated = false;
   currentLevelIndex = levels.length - 1;
   player = { ...playerStartPosition };
   playerX = player.x;
@@ -376,22 +531,27 @@ function startFinalTreasureIsland() {
   bossDefeatToken += 1;
   attackCooldown = 0;
   dashCooldown = 0;
+  gunCooldown = 0;
   lastDirection = "right";
   playerElement.classList.remove("damaged", "dashing");
   routePanel.classList.add("hidden");
   worldMap.classList.add("hidden");
   upgradeMenu.classList.add("hidden");
   gameOverlay.classList.add("hidden");
+  sailingOverlay.classList.add("hidden");
   chestElement.classList.add("hidden");
   enemyElement.style.display = "none";
   removeBoss();
   removeMysteryFruit();
   removeGrandTreasure();
+  clearBullets();
+  clearLavaBursts();
   clearLevelObjects();
   gameArea.classList.remove("level-coconut", "level-mist", "level-volcano");
   gameArea.classList.add("level-treasure");
   createGrandTreasure();
-  updateHud("Open the Grand Treasure to complete the adventure!");
+  startBossEvent({ boss: ghostPirateBoss });
+  updateHud("Defeat the Ghost Pirate to unlock the Grand Treasure!");
   drawSprites();
 }
 
@@ -400,11 +560,12 @@ function clearLevelObjects() {
   coins = [];
   lavaTraps = [];
   enemies = [];
+  clearSideQuestObjects();
 }
 
 function createGrandTreasure() {
   const element = document.createElement("div");
-  element.className = "sprite grand-treasure";
+  element.className = "sprite grand-treasure locked";
   element.textContent = "💎";
   gameArea.appendChild(element);
 
@@ -455,12 +616,16 @@ function updateQuestPanel() {
   questCoinsElement.textContent = score;
   questCoinGoalElement.textContent = coinGoal;
   questFragmentsElement.textContent = `${mapFragments}/3`;
+  questSideObjectiveElement.textContent = getSideQuestObjectiveText();
+  questSideProgressElement.textContent = getSideQuestProgressText();
+  questWalletElement.textContent = `${totalCoins} coins`;
+  questNextActionElement.textContent = getNextActionText();
   questHintElement.textContent = getQuestHint();
 }
 
 function getQuestObjective() {
   if (finalIslandActive) {
-    return "Open the Grand Treasure";
+    return ghostPirateDefeated ? "Open the Grand Treasure" : "Defeat the Ghost Pirate";
   }
 
   if (isUpgradeMenuOpen()) {
@@ -496,7 +661,9 @@ function getQuestHint() {
   }
 
   if (finalIslandActive) {
-    return "Reach the Grand Treasure and open it.";
+    return ghostPirateDefeated
+      ? "Reach the Grand Treasure and open it."
+      : "Defeat the Ghost Pirate first. Dash away from warning attacks.";
   }
 
   if (isUpgradeMenuOpen()) {
@@ -522,6 +689,78 @@ function getQuestHint() {
   return "Follow the next panel or map prompt.";
 }
 
+function getNextActionText() {
+  if (introActive) {
+    return "Start Adventure";
+  }
+  if (isUpgradeMenuOpen()) {
+    return "Buy or continue";
+  }
+  if (isWorldMapOpen()) {
+    return "Choose island";
+  }
+  if (isRouteQuestionOpen()) {
+    return "Answer clue";
+  }
+  if (bossActive) {
+    return purchasedUpgrades.includes("pirateGun") ? "Space or J" : "Attack boss";
+  }
+  if (finalIslandActive) {
+    return ghostPirateDefeated ? "Open treasure" : "Fight boss";
+  }
+  if (npc && isTouching(player, npc)) {
+    return "Press E";
+  }
+  if (score < levels[currentLevelIndex].coinCount) {
+    return "Collect coins";
+  }
+  return routeUnlocked ? "Open map" : "Explore";
+}
+
+function getCurrentSideQuestConfig() {
+  if (finalIslandActive) {
+    return null;
+  }
+
+  return sideQuestConfigs.find((quest) => quest.island === levels[currentLevelIndex].name) || null;
+}
+
+function getCurrentSideQuestState() {
+  const config = getCurrentSideQuestConfig();
+
+  if (!config) {
+    return null;
+  }
+
+  return sideQuestState.find((quest) => quest.island === config.island) || null;
+}
+
+function getSideQuestObjectiveText() {
+  const config = getCurrentSideQuestConfig();
+  const state = getCurrentSideQuestState();
+
+  if (!config || !state) {
+    return "None";
+  }
+
+  return state.rewarded ? "Complete" : config.objective;
+}
+
+function getSideQuestProgressText() {
+  const config = getCurrentSideQuestConfig();
+  const state = getCurrentSideQuestState();
+
+  if (!config || !state) {
+    return "-";
+  }
+
+  if (state.rewarded) {
+    return `Rewarded: ${config.reward}`;
+  }
+
+  return `${state.progress}/${config.target}`;
+}
+
 function updateBattlePanel() {
   if (!bossActive || !boss) {
     battlePanel.classList.add("hidden");
@@ -534,9 +773,7 @@ function updateBattlePanel() {
   battleBossHpText.textContent = `HP: ${boss.hp} / ${boss.maxHp}`;
   battleBossHpFill.style.width = `${Math.max(0, hpPercent)}%`;
   battleBossPhase.textContent = getBossPhaseLabel();
-  battleHint.textContent = boss.stunTimer > 0 || boss.phase === "rest"
-    ? "Attack now!"
-    : "Attack during rest or stun!";
+  battleHint.textContent = getBattleHintText();
   battlePanel.classList.remove("hidden");
 }
 
@@ -549,7 +786,51 @@ function getBossPhaseLabel() {
     return "Stunned";
   }
 
+  if (boss.invulnerableTimer > 0) {
+    return "Invulnerable";
+  }
+
+  if (boss.vulnerableWarningTimer > 0) {
+    return "Reforming";
+  }
+
+  if (boss.type === "crab" && boss.hp <= 2) {
+    return "Enraged";
+  }
+
+  if (boss.type === "ghostPirate" && boss.hp <= 6) {
+    return "Ghost Rage";
+  }
+
+  if (boss.warningAttackTimer > 0 || lavaBursts.some((burst) => burst.state === "warning")) {
+    return "Warning Attack";
+  }
+
   return boss.phase === "rest" ? "Resting" : "Chasing";
+}
+
+function getBattleHintText() {
+  if (!boss) {
+    return "";
+  }
+
+  if (boss.invulnerableTimer > 0) {
+    return "Invulnerable: dodge and wait.";
+  }
+
+  if (boss.vulnerableWarningTimer > 0) {
+    return "Warning: attack window soon!";
+  }
+
+  if (boss.warningAttackTimer > 0 || lavaBursts.some((burst) => burst.state === "warning")) {
+    return "Warning attack incoming. Dash clear!";
+  }
+
+  if (boss.stunTimer > 0 || boss.phase === "rest") {
+    return "Attack now!";
+  }
+
+  return purchasedUpgrades.includes("pirateGun") ? "Dodge, then use Space or J." : "Attack during rest or stun!";
 }
 
 function showToast(message) {
@@ -577,9 +858,30 @@ function drawSprites() {
     coin.element.style.display = coin.collected ? "none" : "grid";
   });
 
+  sideQuestItems.forEach((item) => {
+    item.element.style.left = `${item.x}px`;
+    item.element.style.top = `${item.y}px`;
+    item.element.style.display = item.collected ? "none" : "grid";
+  });
+
+  if (npc) {
+    npc.element.style.left = `${npc.x}px`;
+    npc.element.style.top = `${npc.y}px`;
+  }
+
   lavaTraps.forEach((lava) => {
     lava.element.style.left = `${lava.x}px`;
     lava.element.style.top = `${lava.y}px`;
+  });
+
+  lavaBursts.forEach((burst) => {
+    burst.element.style.left = `${burst.x}px`;
+    burst.element.style.top = `${burst.y}px`;
+  });
+
+  bullets.forEach((bullet) => {
+    bullet.element.style.left = `${bullet.x}px`;
+    bullet.element.style.top = `${bullet.y}px`;
   });
 
   if (mysteryFruit) {
@@ -750,9 +1052,15 @@ function keepInside(value, max) {
 }
 
 function checkCollisions(deltaTime) {
+  if (enemyHitCooldown > 0) {
+    enemyHitCooldown = Math.max(0, enemyHitCooldown - deltaTime);
+  }
+
   if (finalIslandActive) {
-    if (grandTreasure && isTouching(player, grandTreasure)) {
+    if (grandTreasure && ghostPirateDefeated && isTouching(player, grandTreasure)) {
       completeFinalAdventure();
+    } else if (grandTreasure && !ghostPirateDefeated && isTouching(player, grandTreasure)) {
+      updateHud("The Grand Treasure is locked by the Ghost Pirate.");
     }
     return;
   }
@@ -776,9 +1084,14 @@ function checkCollisions(deltaTime) {
     }
   });
 
-  if (enemyHitCooldown > 0) {
-    enemyHitCooldown = Math.max(0, enemyHitCooldown - deltaTime);
-  }
+  sideQuestItems.forEach((item) => {
+    if (item.collected || !isTouching(player, item)) {
+      return;
+    }
+
+    item.collected = true;
+    advanceSideQuest();
+  });
 
   const touchedEnemy = enemies.find((enemy) => isTouching(player, enemy));
   if (enemyHitCooldown === 0 && touchedEnemy) {
@@ -794,9 +1107,75 @@ function checkCollisions(deltaTime) {
     });
   }
 
+  if (enemyHitCooldown === 0 && lavaBursts.some((burst) => burst.state === "active" && isTouching(player, burst))) {
+    takeDamage("Lava burst! Watch the warning zones.", "A lava burst ended your quest.", {
+      shake: true,
+      playerDamageText: true
+    });
+  }
+
   if (routeUnlocked && isTouching(player, chestPosition)) {
     completeLevel();
   }
+}
+
+function advanceSideQuest() {
+  const config = getCurrentSideQuestConfig();
+  const state = getCurrentSideQuestState();
+
+  if (!config || !state || state.rewarded) {
+    return;
+  }
+
+  state.progress = Math.min(config.target, state.progress + 1);
+  showToast(`${config.itemName} ${state.progress}/${config.target}`);
+  updateHud(`${config.objective}: ${state.progress}/${config.target}`);
+}
+
+function interactWithNpc() {
+  const config = getCurrentSideQuestConfig();
+  const state = getCurrentSideQuestState();
+
+  if (!config || !state || !npc || !isTouching(player, npc)) {
+    return;
+  }
+
+  if (state.rewarded) {
+    showToast(`${config.npcName}: Thanks again!`);
+    updateHud(`${config.npcName} already gave your reward.`);
+    return;
+  }
+
+  if (state.progress < config.target) {
+    showToast(`${config.npcName}: ${config.objective}.`);
+    updateHud(`${config.npcName} wants ${config.objective.toLowerCase()}. Progress: ${state.progress}/${config.target}.`);
+    return;
+  }
+
+  grantSideQuestReward(config, state);
+}
+
+function grantSideQuestReward(config, state) {
+  state.rewarded = true;
+
+  if (config.island === "Coconut Island") {
+    totalCoins += 3;
+    showToast("Side quest complete! +3 coins");
+    updateHud("Shell Scout rewarded you with 3 coins.");
+    return;
+  }
+
+  if (config.island === "Mist Island") {
+    const oldHealth = health;
+    health = Math.min(maxHealth, health + 1);
+    showToast(health > oldHealth ? "Side quest complete! HP +1" : "Side quest complete!");
+    updateHud(health > oldHealth ? "Fog Keeper healed 1 HP." : "Fog Keeper tried to heal you, but HP is full.");
+    return;
+  }
+
+  totalCoins += 4;
+  showToast("Side quest complete! +4 coins");
+  updateHud("Ash Miner says: Lava Beast warns before bursts. Watch the ground!");
 }
 
 function startBossEvent(level) {
@@ -825,6 +1204,13 @@ function createBoss(settings) {
     phase: "chase",
     phaseTimer: bossChaseDuration,
     stunTimer: 0,
+    invulnerableTimer: 0,
+    fadeCooldown: settings.type === "fog" ? 2.4 : 0,
+    vulnerableWarningTimer: 0,
+    warningAttackTimer: 0,
+    dashAttackCooldown: settings.type === "ghostPirate" ? 2.6 : 0,
+    dashAttackVector: null,
+    lavaBurstCooldown: settings.type === "lava" ? 2.1 : 0,
     element
   };
 }
@@ -845,6 +1231,7 @@ function updateBoss(deltaTime) {
   }
 
   updateBossTimers(deltaTime);
+  updateBossSpecialAttacks(deltaTime);
 
   if (canBossMove()) {
     moveBoss(deltaTime);
@@ -865,6 +1252,30 @@ function updateBossTimers(deltaTime) {
     return;
   }
 
+  if (boss.invulnerableTimer > 0) {
+    boss.invulnerableTimer = Math.max(0, boss.invulnerableTimer - deltaTime);
+    boss.element.classList.add("invulnerable");
+
+    if (boss.invulnerableTimer === 0) {
+      boss.vulnerableWarningTimer = 0.7;
+      boss.element.classList.remove("invulnerable");
+      boss.element.classList.add("reforming");
+      showToast("Fog Ghost is reforming!");
+    }
+
+    return;
+  }
+
+  if (boss.vulnerableWarningTimer > 0) {
+    boss.vulnerableWarningTimer = Math.max(0, boss.vulnerableWarningTimer - deltaTime);
+
+    if (boss.vulnerableWarningTimer === 0) {
+      boss.element.classList.remove("reforming");
+    }
+
+    return;
+  }
+
   boss.phaseTimer = Math.max(0, boss.phaseTimer - deltaTime);
 
   if (boss.phaseTimer > 0) {
@@ -881,12 +1292,154 @@ function updateBossTimers(deltaTime) {
 }
 
 function canBossMove() {
-  return boss.stunTimer === 0 && boss.phase === "chase";
+  return boss.stunTimer === 0 && boss.phase === "chase" && boss.invulnerableTimer === 0 && boss.vulnerableWarningTimer === 0;
+}
+
+function updateBossSpecialAttacks(deltaTime) {
+  updateLavaBursts(deltaTime);
+
+  if (!boss || boss.stunTimer > 0 || boss.phase === "rest") {
+    return;
+  }
+
+  if (boss.type === "fog") {
+    updateFogGhostFade(deltaTime);
+  }
+
+  if (boss.type === "lava") {
+    updateLavaBeastBurst(deltaTime);
+  }
+
+  if (boss.type === "ghostPirate" && boss.hp <= 6) {
+    updateGhostPirateDash(deltaTime);
+  }
+}
+
+function updateFogGhostFade(deltaTime) {
+  if (boss.invulnerableTimer > 0 || boss.vulnerableWarningTimer > 0) {
+    return;
+  }
+
+  boss.fadeCooldown = Math.max(0, boss.fadeCooldown - deltaTime);
+
+  if (boss.fadeCooldown > 0) {
+    return;
+  }
+
+  boss.invulnerableTimer = 1;
+  boss.fadeCooldown = 3.2;
+  boss.element.classList.add("invulnerable");
+  showToast("Fog Ghost faded away!");
+}
+
+function updateLavaBeastBurst(deltaTime) {
+  boss.lavaBurstCooldown = Math.max(0, boss.lavaBurstCooldown - deltaTime);
+
+  if (boss.lavaBurstCooldown > 0) {
+    return;
+  }
+
+  createLavaBurst(player.x, player.y);
+  boss.lavaBurstCooldown = boss.hp <= 4 ? 2.1 : 2.8;
+}
+
+function createLavaBurst(x, y) {
+  const element = document.createElement("div");
+  element.className = "lava-burst warning";
+  gameArea.appendChild(element);
+
+  lavaBursts.push({
+    x: keepInside(x - 12, gameWidth - 58),
+    y: keepInside(y - 12, gameHeight - 58),
+    state: "warning",
+    timer: 0.85,
+    element
+  });
+}
+
+function updateLavaBursts(deltaTime) {
+  lavaBursts.forEach((burst) => {
+    burst.timer = Math.max(0, burst.timer - deltaTime);
+
+    if (burst.timer > 0) {
+      return;
+    }
+
+    if (burst.state === "warning") {
+      burst.state = "active";
+      burst.timer = 0.55;
+      burst.element.classList.remove("warning");
+      burst.element.classList.add("active");
+      return;
+    }
+
+    burst.element.remove();
+    burst.done = true;
+  });
+
+  lavaBursts = lavaBursts.filter((burst) => !burst.done);
+}
+
+function clearLavaBursts() {
+  lavaBursts.forEach((burst) => burst.element.remove());
+  lavaBursts = [];
+}
+
+function updateGhostPirateDash(deltaTime) {
+  if (boss.warningAttackTimer > 0) {
+    boss.warningAttackTimer = Math.max(0, boss.warningAttackTimer - deltaTime);
+
+    if (boss.warningAttackTimer === 0 && boss.dashAttackVector) {
+      boss.x = keepInside(boss.x + boss.dashAttackVector.x * 145, gameWidth - spriteSize);
+      boss.y = keepInside(boss.y + boss.dashAttackVector.y * 145, gameHeight - spriteSize);
+      boss.dashAttackVector = null;
+      boss.element.classList.remove("dash-warning");
+    }
+
+    return;
+  }
+
+  boss.dashAttackCooldown = Math.max(0, boss.dashAttackCooldown - deltaTime);
+
+  if (boss.dashAttackCooldown > 0) {
+    return;
+  }
+
+  const dx = player.x - boss.x;
+  const dy = player.y - boss.y;
+  const distance = Math.hypot(dx, dy) || 1;
+
+  boss.dashAttackVector = { x: dx / distance, y: dy / distance };
+  boss.warningAttackTimer = 0.75;
+  boss.dashAttackCooldown = 3.1;
+  boss.element.classList.add("dash-warning");
+  showBossDashWarning();
+}
+
+function showBossDashWarning() {
+  const warning = document.createElement("div");
+  warning.className = "dash-attack-warning";
+  warning.style.left = `${keepInside(player.x - 22, gameWidth - 78)}px`;
+  warning.style.top = `${keepInside(player.y - 22, gameHeight - 78)}px`;
+  gameArea.appendChild(warning);
+  setTimeout(() => warning.remove(), 760);
 }
 
 function getBossFightStatus() {
   if (boss.stunTimer > 0) {
     return `${boss.name} is stunned! Attack while you can.`;
+  }
+
+  if (boss.invulnerableTimer > 0) {
+    return `${boss.name} faded away. Dodge until it reforms.`;
+  }
+
+  if (boss.vulnerableWarningTimer > 0) {
+    return `${boss.name} is about to become attackable again.`;
+  }
+
+  if (boss.warningAttackTimer > 0 || lavaBursts.some((burst) => burst.state === "warning")) {
+    return "Warning attack incoming! Dash out of the marked zone.";
   }
 
   if (boss.phase === "rest") {
@@ -901,8 +1454,24 @@ function moveBoss(deltaTime) {
   const dy = player.y - boss.y;
   const distance = Math.hypot(dx, dy) || 1;
 
-  boss.x = keepInside(boss.x + (dx / distance) * boss.speed * deltaTime, gameWidth - spriteSize);
-  boss.y = keepInside(boss.y + (dy / distance) * boss.speed * deltaTime, gameHeight - spriteSize);
+  boss.x = keepInside(boss.x + (dx / distance) * getBossSpeed() * deltaTime, gameWidth - spriteSize);
+  boss.y = keepInside(boss.y + (dy / distance) * getBossSpeed() * deltaTime, gameHeight - spriteSize);
+}
+
+function getBossSpeed() {
+  if (!boss) {
+    return 0;
+  }
+
+  if (boss.type === "crab" && boss.hp <= 2) {
+    return boss.speed + 28;
+  }
+
+  if (boss.type === "ghostPirate" && boss.hp <= 6) {
+    return boss.speed + 18;
+  }
+
+  return boss.speed;
 }
 
 function checkBossCollision() {
@@ -920,7 +1489,7 @@ function checkBossCollision() {
 }
 
 function canBossDamagePlayer() {
-  return boss && boss.phase === "chase" && boss.stunTimer === 0;
+  return boss && boss.phase === "chase" && boss.stunTimer === 0 && boss.invulnerableTimer === 0 && boss.vulnerableWarningTimer === 0;
 }
 
 function attackBoss() {
@@ -928,19 +1497,33 @@ function attackBoss() {
     return;
   }
 
+  if (isBossInvulnerable()) {
+    showSlashEffect(GameLogic.getAttackArea(player, getDirectionToBoss(), {
+      spriteSize,
+      range: bossAttackRange,
+      thickness: bossAttackThickness
+    }), getDirectionToBoss());
+    showToast(`${boss.name} is invulnerable!`);
+    updateHud("Wait for the warning to end before attacking.");
+    return;
+  }
+
   const attackDirection = getDirectionToBoss();
+  const meleeRange = purchasedUpgrades.includes("sharpSword") ? bossAttackRange + 22 : bossAttackRange;
+  const meleeThickness = purchasedUpgrades.includes("sharpSword") ? bossAttackThickness + 16 : bossAttackThickness;
+  const meleeDamage = purchasedUpgrades.includes("sharpSword") ? 2 : 1;
   const attackArea = GameLogic.getAttackArea(player, attackDirection, {
     spriteSize,
-    range: bossAttackRange,
-    thickness: bossAttackThickness
+    range: meleeRange,
+    thickness: meleeThickness
   });
   const result = GameLogic.attackBoss(player, boss, {
     spriteSize,
-    range: bossAttackRange,
-    thickness: bossAttackThickness,
+    range: meleeRange,
+    thickness: meleeThickness,
     direction: attackDirection,
     attackArea,
-    damage: 1,
+    damage: meleeDamage,
     cooldown: attackCooldown,
     hitCooldown: 0.6,
     missCooldown: 0.2
@@ -963,13 +1546,17 @@ function attackBoss() {
   boss.hp = result.bossHp;
   boss.stunTimer = bossStunDuration;
   playBossHitEffect();
-  showFloatingText("-1 HP", boss.x + 5, boss.y - 10, "damage");
+  showFloatingText(`-${meleeDamage} HP`, boss.x + 5, boss.y - 10, "damage");
   showToast("Boss hit!");
   updateHud(`${boss.name} hit! Boss HP: ${boss.hp}/${boss.maxHp}`);
 
   if (result.defeated) {
     finishBossEvent();
   }
+}
+
+function isBossInvulnerable() {
+  return boss && (boss.invulnerableTimer > 0 || boss.vulnerableWarningTimer > 0);
 }
 
 function finishBossEvent() {
@@ -980,6 +1567,30 @@ function finishBossEvent() {
   bossDefeatToken = defeatToken;
   bossActive = false;
   attackCooldown = 0;
+
+  if (finalIslandActive && defeatedBoss && defeatedBoss.type === "ghostPirate") {
+    ghostPirateDefeated = true;
+    showToast("Ghost Pirate defeated!");
+
+    if (defeatedBoss.element) {
+      defeatedBoss.element.classList.add("defeated");
+      showFloatingText("Defeated!", defeatedBoss.x - 4, defeatedBoss.y - 14, "defeat");
+    }
+
+    if (grandTreasure && grandTreasure.element) {
+      grandTreasure.element.classList.remove("locked");
+    }
+
+    updateHud("The Ghost Pirate vanished. The Grand Treasure is unlocked!");
+
+    setTimeout(() => {
+      if (bossDefeatToken === defeatToken && !gameOver) {
+        removeBoss();
+      }
+    }, 750);
+    return;
+  }
+
   showToast("Boss defeated!");
 
   if (defeatedBoss && defeatedBoss.element) {
@@ -1024,6 +1635,79 @@ function showSlashEffect(attackArea, direction) {
   slash.style.top = `${keepInside(attackArea.y + attackArea.height / 2 - 17, gameHeight - 34)}px`;
   gameArea.appendChild(slash);
   setTimeout(() => slash.remove(), 260);
+}
+
+function shootPirateGun() {
+  if (introActive || gameOver || !bossActive || !boss || !purchasedUpgrades.includes("pirateGun")) {
+    return;
+  }
+
+  if (gunCooldown > 0) {
+    showToast(`Gun ready in ${Math.ceil(gunCooldown)}s.`);
+    return;
+  }
+
+  const direction = getDirectionToBoss();
+  const vector = getDirectionVector(direction);
+  const element = document.createElement("div");
+  element.className = "bullet-effect";
+  element.textContent = "•";
+  gameArea.appendChild(element);
+
+  bullets.push({
+    x: player.x + spriteSize / 2 - 5,
+    y: player.y + spriteSize / 2 - 5,
+    dx: vector.x,
+    dy: vector.y,
+    element
+  });
+
+  gunCooldown = gunCooldownDuration;
+  showToast("Pirate Gun fired!");
+}
+
+function updateBullets(deltaTime) {
+  bullets.forEach((bullet) => {
+    bullet.x += bullet.dx * bulletSpeed * deltaTime;
+    bullet.y += bullet.dy * bulletSpeed * deltaTime;
+
+    if (bullet.x < -12 || bullet.x > gameWidth || bullet.y < -12 || bullet.y > gameHeight) {
+      bullet.done = true;
+      return;
+    }
+
+    if (bossActive && boss && !isBossInvulnerable() && isTouching({ x: bullet.x, y: bullet.y }, boss)) {
+      damageBoss(1, "Gun shot!");
+      bullet.done = true;
+    }
+  });
+
+  bullets
+    .filter((bullet) => bullet.done)
+    .forEach((bullet) => bullet.element.remove());
+  bullets = bullets.filter((bullet) => !bullet.done);
+}
+
+function clearBullets() {
+  bullets.forEach((bullet) => bullet.element.remove());
+  bullets = [];
+}
+
+function damageBoss(damage, message) {
+  if (!boss || isBossInvulnerable()) {
+    return;
+  }
+
+  boss.hp = Math.max(0, boss.hp - damage);
+  boss.stunTimer = bossStunDuration;
+  playBossHitEffect();
+  showFloatingText(`-${damage} HP`, boss.x + 5, boss.y - 10, "damage");
+  showToast(message);
+  updateHud(`${boss.name} hit! Boss HP: ${boss.hp}/${boss.maxHp}`);
+
+  if (boss.hp === 0) {
+    finishBossEvent();
+  }
 }
 
 function playBossHitEffect() {
@@ -1300,7 +1984,7 @@ function renderUpgradeChoices() {
   upgradeWallet.textContent = `Wallet: ${totalCoins} coins`;
 
   shipUpgrades.forEach((upgrade) => {
-    const isPurchased = purchasedUpgrades.includes(upgrade.id);
+    const isPurchased = !upgrade.consumable && purchasedUpgrades.includes(upgrade.id);
     const canAfford = totalCoins >= upgrade.cost;
     const card = document.createElement("div");
     const button = document.createElement("button");
@@ -1331,9 +2015,19 @@ function renderUpgradeChoices() {
 
 function buyUpgrade(upgradeId) {
   const upgrade = shipUpgrades.find((item) => item.id === upgradeId);
+
+  if (!upgrade) {
+    return;
+  }
+
+  if (upgrade.id === "heartPotion") {
+    buyHeartPotion(upgrade);
+    return;
+  }
+
   const result = GameLogic.buyUpgrade(totalCoins, purchasedUpgrades, upgrade);
 
-  if (!upgrade || result.reason === "already-purchased") {
+  if (result.reason === "already-purchased") {
     return;
   }
 
@@ -1349,6 +2043,28 @@ function buyUpgrade(upgradeId) {
   showToast("Upgrade purchased!");
   updateHud(`${upgrade.name} purchased!`);
   upgradeMessage.textContent = `${upgrade.name} applied immediately. Wallet: ${totalCoins} coins.`;
+  upgradeWallet.textContent = `Wallet: ${totalCoins} coins`;
+  renderUpgradeChoices();
+}
+
+function buyHeartPotion(upgrade) {
+  if (health >= maxHealth) {
+    showToast("HP is already full.");
+    upgradeMessage.textContent = "HP is already full.";
+    return;
+  }
+
+  if (totalCoins < upgrade.cost) {
+    showToast("Not enough coins!");
+    upgradeMessage.textContent = "Not enough coins for Heart Potion.";
+    return;
+  }
+
+  totalCoins -= upgrade.cost;
+  health = Math.min(maxHealth, health + 1);
+  showToast("Heart Potion used! HP +1");
+  updateHud(`Heart Potion restored 1 HP. Wallet: ${totalCoins} coins.`);
+  upgradeMessage.textContent = `Heart Potion restored 1 HP. Wallet: ${totalCoins} coins.`;
   upgradeWallet.textContent = `Wallet: ${totalCoins} coins`;
   renderUpgradeChoices();
 }
@@ -1404,6 +2120,7 @@ function showWorldMap() {
     ? "All map fragments collected. The path to Treasure Island is revealed!"
     : getWorldMapMessage();
   worldMapIslands.innerHTML = "";
+  shipRoute.innerHTML = '<span class="ship-icon">⛵</span>';
 
   worldMapRoute.forEach((island, index) => {
     const isCompleted = index < mapFragments && index < levels.length;
@@ -1484,15 +2201,29 @@ function selectWorldMapIsland(index) {
     return;
   }
 
+  const destination = worldMapRoute[index];
+
   worldMap.classList.add("hidden");
+  showSailingTransition(destination.name, () => {
+    if (index === 3) {
+      startFinalTreasureIsland();
+      return;
+    }
 
-  if (index === 3) {
-    startFinalTreasureIsland();
-    return;
-  }
+    currentLevelIndex = index;
+    startLevel();
+  });
+}
 
-  currentLevelIndex = index;
-  startLevel();
+function showSailingTransition(islandName, onComplete) {
+  sailingMessage.textContent = `Sailing to ${islandName}...`;
+  sailingOverlay.classList.remove("hidden");
+  showToast(`Sailing to ${islandName}...`);
+
+  setTimeout(() => {
+    sailingOverlay.classList.add("hidden");
+    onComplete();
+  }, 950);
 }
 
 function completeFinalAdventure() {
@@ -1550,9 +2281,11 @@ function gameLoop(currentTime) {
   if (!introActive && !gameOver && !isRouteQuestionOpen() && !isWorldMapOpen() && !isUpgradeMenuOpen()) {
     attackCooldown = Math.max(0, attackCooldown - deltaTime);
     dashCooldown = Math.max(0, dashCooldown - deltaTime);
+    gunCooldown = Math.max(0, gunCooldown - deltaTime);
     movePlayer(deltaTime);
     moveEnemies(deltaTime);
     updatePowerUp(deltaTime);
+    updateBullets(deltaTime);
     checkCollisions(deltaTime);
     updateBoss(deltaTime);
     drawSprites();
@@ -1585,6 +2318,18 @@ document.addEventListener("keydown", (event) => {
     return;
   }
 
+  if (key === "j") {
+    event.preventDefault();
+    shootPirateGun();
+    return;
+  }
+
+  if (key === "e") {
+    event.preventDefault();
+    interactWithNpc();
+    return;
+  }
+
   if (["arrowup", "arrowdown", "arrowleft", "arrowright", "w", "a", "s", "d"].includes(key)) {
     event.preventDefault();
     updateLastDirection(key);
@@ -1603,3 +2348,4 @@ startAdventureButton.addEventListener("click", startAdventure);
 
 startGame();
 gameLoop();
+

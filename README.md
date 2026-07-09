@@ -31,7 +31,8 @@ You are a tiny pirate searching for the lost treasure of the Tiny Sea. Explore i
 - Story intro overlay before gameplay starts
 - Beginner control guide on first load
 - Quest Panel with island, objective, coin progress, fragments, and next hint
-- Battle Panel during boss fights with boss name, HP bar, phase, and fight hint
+- Quest Panel support for side quest, side progress, wallet, and next action
+- Battle Panel during boss fights with boss name, HP bar, phase, invulnerability, enraged, and warning attack hints
 - Heart health GUI in the HUD
 - Three main islands with different rules and visuals
 - Final Treasure Island unlock
@@ -41,12 +42,17 @@ You are a tiny pirate searching for the lost treasure of the Tiny Sea. Explore i
 - Boss HP shown under the boss during boss fights
 - Space key boss attack with cooldown
 - Directional boss attacks with wider hitboxes and soft lock-on
+- Pirate Gun ranged attack with `J` after purchase
 - Boss hit, damage, and defeat effects
+- Harder boss phase patterns with fair warning windows
 - Treasure route clue questions
 - World Map with locked, unlocked, current, and completed islands
+- World Map ship route and sailing transition before island loads
 - Sea Map Fragment progression
 - Crew system with Navigator and Cook
 - Ship upgrade menu
+- Weapon shop items: Sharp Sword, Pirate Gun, and Heart Potion
+- Optional NPC side quests on each main island
 - Shop wallet display and clear item cards
 - Toast messages for key feedback
 - Mystery Fruit power-ups
@@ -60,7 +66,7 @@ You are a tiny pirate searching for the lost treasure of the Tiny Sea. Explore i
 | 1 | Coconut Island | Collect 10 coins | 1 crab, Giant Crab boss |
 | 2 | Mist Island | Collect 12 coins | 2 enemies, Fog Ghost boss |
 | 3 | Volcano Island | Collect 15 coins | 2 enemies, lava traps, Lava Beast boss |
-| Final | Treasure Island | Open the Grand Treasure | Final reward sequence |
+| Final | Treasure Island | Defeat Ghost Pirate, then open Grand Treasure | Ghost Pirate boss |
 
 ## How to Play
 
@@ -73,7 +79,8 @@ You are a tiny pirate searching for the lost treasure of the Tiny Sea. Explore i
 7. Complete the island and collect a Sea Map Fragment.
 8. Use the upgrade menu and World Map to continue.
 9. Collect 3 Sea Map Fragments to reveal Final Treasure Island.
-10. Open the Grand Treasure to finish the adventure.
+10. Defeat the Ghost Pirate.
+11. Open the Grand Treasure to finish the adventure.
 
 ## Controls
 
@@ -84,13 +91,15 @@ You are a tiny pirate searching for the lost treasure of the Tiny Sea. Explore i
 | Move Left | `A` or `Arrow Left` |
 | Move Right | `D` or `Arrow Right` |
 | Attack Boss | `Space` |
+| Shoot Pirate Gun | `J` |
 | Dash | `Shift` |
+| Interact with NPC | `E` |
 
 ## GUI Panels
 
 ### Quest Panel
 
-The Quest Panel shows the current island, main objective, coin progress, collected map fragments, and the next action hint.
+The Quest Panel shows the current island, main objective, coin progress, collected map fragments, side quest objective, side quest progress, wallet, next action, and hint.
 
 Example objectives:
 
@@ -100,6 +109,7 @@ Example objectives:
 - Buy upgrades or continue
 - Sail to next island
 - Open the Grand Treasure
+- Defeat the Ghost Pirate
 
 ### Battle Panel
 
@@ -110,6 +120,11 @@ Boss phases shown in the panel:
 - Chasing
 - Resting
 - Stunned
+- Enraged
+- Invulnerable
+- Reforming
+- Warning Attack
+- Ghost Rage
 
 ### Heart Health
 
@@ -144,21 +159,32 @@ Boss attacks use a directional hitbox:
 | Left / Right | 100px wide x 70px high |
 | Up / Down | 70px wide x 100px high |
 
-Bosses follow a simple rhythm:
+Bosses follow a chase/rest rhythm, with added phase behavior:
 
 ```text
 Chase for 3 seconds -> Rest for 1 second -> Repeat
 ```
 
-Current boss speeds:
+When hit, bosses are stunned for 0.8 seconds. Bosses do not damage the player while stunned, resting, faded, or reforming.
 
-| Boss | Speed |
-|---|---|
-| Giant Crab | 95 |
-| Fog Ghost | 105 |
-| Lava Beast | 120 |
- 
-When hit, bosses are stunned for 0.8 seconds.
+| Boss | HP | Sprint 2 Pattern |
+|---|---:|---|
+| Giant Crab | 5 | Enraged at 2 HP or less with slightly faster chase |
+| Fog Ghost | 7 | Fades for 1 second, ignores player attacks while invulnerable, then shows a reforming warning |
+| Lava Beast | 9 | Marks lava burst warning zones before active damage |
+| Ghost Pirate | 12 | Final boss; phase 2 at 6 HP or less adds warned dash attacks |
+
+Strong attacks use visible warning zones before they can damage the player. Dash remains useful for escaping Giant Crab chase pressure, Lava Beast burst zones, and Ghost Pirate dash warnings.
+
+### Final Ghost Pirate
+
+Final Treasure Island now starts with the Grand Treasure locked. The Ghost Pirate appears first with 12 HP.
+
+- Phase 1 uses the chase/rest boss rhythm.
+- Phase 2 starts at 6 HP or less and shows `Ghost Rage` in the Battle Panel.
+- Ghost Rage adds a dash attack warning before the boss lunges.
+- After defeat, the game shows: `The Ghost Pirate vanished. The Grand Treasure is unlocked!`
+- The Grand Treasure can only be opened after the Ghost Pirate is defeated.
 
 ## Progression Systems
 
@@ -182,6 +208,29 @@ When hit, bosses are stunned for 0.8 seconds.
 | Strong Sail | Increases player speed |
 | Reinforced Hull | Increases max health by 1 |
 | Treasure Radar | Shows a hint when only a few coins remain |
+| Sharp Sword | Increases melee attack size and melee damage |
+| Pirate Gun | Unlocks `J` ranged attack with cooldown |
+| Heart Potion | Restores 1 HP immediately, up to max HP, and can be bought multiple times |
+
+Pirate Gun bullets travel in the last movement direction, or toward the boss when the existing soft lock-on can aim at a nearby boss. Bullets can hit bosses, show a visible shot effect, and use a cooldown so the gun cannot be spammed.
+
+Heart Potion cannot exceed max health. If HP is full, the shop shows the toast `HP is already full.`
+
+### NPC Side Quests
+
+Side quests are optional and do not block main progression. Talk to NPCs with `E` when close.
+
+| Island | NPC Quest | Reward |
+|---|---|---|
+| Coconut Island | Collect 3 shells | 3 coins |
+| Mist Island | Collect 2 ghost lights | Heal 1 HP |
+| Volcano Island | Collect 2 fire stones | Bonus coins and Lava Beast hint |
+
+Rewards are granted once only. Progress appears in the Quest Panel.
+
+### Ship Travel
+
+The World Map shows a ship route. Selecting the current unlocked island displays `Sailing to [Island Name]...` with a short transition before the island loads.
 
 ### Mystery Fruits
 
@@ -196,7 +245,8 @@ When hit, bosses are stunned for 0.8 seconds.
 | Rule | Result |
 |---|---|
 | Player completes all 3 islands | Final Treasure Island unlocks |
-| Player opens the Grand Treasure | Adventure completed |
+| Player defeats Ghost Pirate | Grand Treasure unlocks |
+| Player opens the unlocked Grand Treasure | Adventure completed |
 | Player health reaches 0 | Game Over |
 | Player chooses a wrong route answer | Health decreases by 1 |
 
@@ -272,6 +322,16 @@ npm run check
 | Boss attack | Space damages boss when boss overlaps the directional attack area |
 | Boss lock-on | Space aims toward nearby boss within lock-on range |
 | Boss rest/stun | Boss does not damage player while resting or stunned |
+| Giant Crab enraged | At 2 HP or less, Battle Panel shows Enraged and chase is faster |
+| Fog Ghost fade | Faded ghost ignores attacks and shows reforming warning before attackable |
+| Lava Beast burst | Warning zone appears before active lava burst damage |
+| Ghost Pirate | Appears on Final Treasure Island before treasure opens |
+| Grand Treasure lock | Cannot open until Ghost Pirate is defeated |
+| Sharp Sword | Melee hit is larger and deals more damage |
+| Pirate Gun | `J` fires cooldown bullets that can damage bosses |
+| Heart Potion | Heals 1 HP, never exceeds max HP, and warns when HP is full |
+| Ship transition | World Map selection shows Sailing to island message before loading |
+| NPC side quests | Collect side items, talk with `E`, and receive reward once |
 | Boss defeat | Defeat animation plays and route clue appears |
 | Enemy damage | Health decreases with damage cooldown |
 | Lava damage | Health decreases and screen shakes |
