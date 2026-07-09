@@ -738,8 +738,19 @@ function completeLevel() {
 
 function showUpgradeMenu() {
   renderUpgradeChoices();
-  upgradeMessage.textContent = `Wallet: ${totalCoins} coins. Spend coins before sailing onward.`;
+  upgradeMessage.textContent = getUpgradeMenuMessage();
+  continueMapButton.textContent = "Open World Map";
   upgradeMenu.classList.remove("hidden");
+}
+
+function getUpgradeMenuMessage() {
+  const nextIsland = worldMapRoute[Math.min(mapFragments, worldMapRoute.length - 1)];
+
+  if (nextIsland && nextIsland.name !== "Treasure Island") {
+    return `${nextIsland.name} is unlocked. Wallet: ${totalCoins} coins. Buy upgrades or open the World Map.`;
+  }
+
+  return `Treasure Island is unlocked. Wallet: ${totalCoins} coins. Buy upgrades or open the World Map.`;
 }
 
 function renderUpgradeChoices() {
