@@ -895,7 +895,11 @@ function showToast(message) {
   toast.textContent = message;
   toastContainer.appendChild(toast);
 
-  setTimeout(() => toast.remove(), 2500);
+  while (toastContainer.children.length > 3) {
+    toastContainer.firstElementChild.remove();
+  }
+
+  setTimeout(() => toast.remove(), 1800);
 }
 
 function drawSprites() {
