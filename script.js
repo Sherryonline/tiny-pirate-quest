@@ -471,7 +471,7 @@ function moveEnemies(deltaTime) {
 }
 
 function keepInside(value, max) {
-  return Math.max(0, Math.min(value, max));
+  return GameLogic.keepInside(value, max);
 }
 
 function checkCollisions(deltaTime) {
@@ -606,13 +606,11 @@ function finishBossEvent() {
 }
 
 function getPlayerSpeed() {
-  let speed = purchasedUpgrades.includes("strongSail") ? basePlayerSpeed + 45 : basePlayerSpeed;
-
-  if (activePowerUp && activePowerUp.id === "wind") {
-    speed += 70;
-  }
-
-  return speed;
+  return GameLogic.getPlayerSpeed(
+    basePlayerSpeed,
+    purchasedUpgrades.includes("strongSail"),
+    activePowerUp ? activePowerUp.id : null
+  );
 }
 
 function activateMysteryFruit(fruit) {
@@ -717,19 +715,20 @@ function showRouteQuestion(level) {
 
 function answerRouteQuestion(choiceIndex) {
   const level = levels[currentLevelIndex];
+  const result = GameLogic.answerRouteQuestion(choiceIndex, level.correctChoice, health);
 
-  if (choiceIndex === level.correctChoice) {
+  if (result.isCorrect) {
     routeUnlocked = true;
     routePanel.classList.add("hidden");
     chestElement.classList.remove("hidden");
     chestElement.classList.add("open");
-    updateHud("Correct! The sea route is revealed.");
+    updateHud(result.message);
     completeLevel();
     return;
   }
 
-  health -= 1;
-  updateHud("Wrong answer! The sea path is still hidden.");
+  health = result.health;
+  updateHud(result.message);
 
   if (health <= 0) {
     routePanel.classList.add("hidden");
@@ -738,15 +737,22 @@ function answerRouteQuestion(choiceIndex) {
 }
 
 function takeDamage(statusMessage, gameOverMessage, options = {}) {
-  if (shieldCharges > 0) {
-    shieldCharges -= 1;
+  const result = GameLogic.applyDamage({
+    health,
+    shieldCharges,
+    cooldown: enemyHitCooldown,
+    damageCooldown: 1
+  });
+
+  health = result.health;
+  shieldCharges = result.shieldCharges;
+  enemyHitCooldown = result.cooldown;
+
+  if (result.blocked) {
     activePowerUp = null;
     updateHud("Shield Fruit blocked the hit!");
     return;
   }
-
-  health -= 1;
-  enemyHitCooldown = 1;
 
   if (options.flash) {
     flashPlayer();
@@ -762,7 +768,7 @@ function takeDamage(statusMessage, gameOverMessage, options = {}) {
 
   updateHud(statusMessage);
 
-  if (health <= 0) {
+  if (result.gameOver) {
     endGame("Game Over", gameOverMessage);
   }
 }
@@ -817,13 +823,13 @@ function showUpgradeMenu() {
 }
 
 function getUpgradeMenuMessage() {
-  const nextIsland = worldMapRoute[Math.min(mapFragments, worldMapRoute.length - 1)];
+  const nextIslandName = GameLogic.getNextIslandName(mapFragments, worldMapRoute);
 
-  if (nextIsland && nextIsland.name !== "Treasure Island") {
-    return `${nextIsland.name} is unlocked. Wallet: ${totalCoins} coins. Buy upgrades or open the World Map.`;
+  if (nextIslandName && nextIslandName !== "Final Treasure Island") {
+    return `${nextIslandName} is unlocked. Wallet: ${totalCoins} coins. Buy upgrades or open the World Map.`;
   }
 
-  return `Treasure Island is unlocked. Wallet: ${totalCoins} coins. Buy upgrades or open the World Map.`;
+  return `Final Treasure Island is unlocked. Wallet: ${totalCoins} coins. Buy upgrades or open the World Map.`;
 }
 
 function renderUpgradeChoices() {
@@ -859,18 +865,19 @@ function renderUpgradeChoices() {
 
 function buyUpgrade(upgradeId) {
   const upgrade = shipUpgrades.find((item) => item.id === upgradeId);
+  const result = GameLogic.buyUpgrade(totalCoins, purchasedUpgrades, upgrade);
 
-  if (!upgrade || purchasedUpgrades.includes(upgradeId)) {
+  if (!upgrade || result.reason === "already-purchased") {
     return;
   }
 
-  if (totalCoins < upgrade.cost) {
+  if (result.reason === "not-enough-coins") {
     upgradeMessage.textContent = "Not enough coins for that upgrade.";
     return;
   }
 
-  totalCoins -= upgrade.cost;
-  purchasedUpgrades.push(upgradeId);
+  totalCoins = result.wallet;
+  purchasedUpgrades = result.purchasedUpgrades;
   applyUpgradeEffect(upgradeId);
   updateHud(`${upgrade.name} purchased!`);
   upgradeMessage.textContent = `${upgrade.name} applied immediately. Wallet: ${totalCoins} coins.`;
@@ -911,16 +918,18 @@ function addCrewMember(memberName) {
 }
 
 function applyCookEffect() {
-  if (!crew.includes("Cook") || health >= 3) {
+  const nextHealth = GameLogic.applyCookHeal(health, maxHealth, crew.includes("Cook"));
+
+  if (nextHealth === health) {
     return "";
   }
 
-  health += 1;
+  health = nextHealth;
   return "Cook restored 1 health.";
 }
 
 function showWorldMap() {
-  const currentMapIndex = Math.min(mapFragments, worldMapRoute.length - 1);
+  const currentMapIndex = GameLogic.getUnlockedIslandIndex(mapFragments, worldMapRoute.length);
 
   worldMapMessage.textContent = mapFragments === 3
     ? "All map fragments collected. The path to Treasure Island is revealed!"
@@ -1001,7 +1010,7 @@ function getMapButtonText(index, isCompleted, isUnlocked, isCurrent) {
 }
 
 function selectWorldMapIsland(index) {
-  if (index > mapFragments) {
+  if (!GameLogic.canSelectIsland(index, mapFragments)) {
     return;
   }
 
@@ -1029,12 +1038,7 @@ function completeFinalAdventure() {
 }
 
 function isTouching(a, b) {
-  return (
-    a.x < b.x + spriteSize &&
-    a.x + spriteSize > b.x &&
-    a.y < b.y + spriteSize &&
-    a.y + spriteSize > b.y
-  );
+  return GameLogic.isTouching(a, b, spriteSize);
 }
 
 function endGame(title, message) {
