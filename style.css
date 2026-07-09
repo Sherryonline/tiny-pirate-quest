@@ -216,10 +216,11 @@ h1 {
 
 .level-coconut {
   background:
-    radial-gradient(circle at 78% 18%, #8ed96f 0 8%, transparent 9%),
-    radial-gradient(circle at 20% 72%, #83d36c 0 10%, transparent 11%),
-    radial-gradient(circle at 50% 50%, #fff2a8 0 5%, transparent 6%),
-    linear-gradient(#f6da85, #eec36a);
+    radial-gradient(ellipse at 83% 24%, rgba(122, 188, 83, 0.45) 0 16%, transparent 17%),
+    radial-gradient(ellipse at 23% 72%, rgba(117, 192, 88, 0.52) 0 18%, transparent 19%),
+    radial-gradient(ellipse at 77% 34%, rgba(151, 110, 58, 0.18) 0 18%, transparent 19%),
+    linear-gradient(100deg, rgba(92, 185, 211, 0.58) 0 12%, transparent 13%),
+    linear-gradient(#f7dc8a, #edc56b);
   border-color: #55b7d8;
   box-shadow:
     0 0 0 5px rgba(255, 255, 255, 0.65) inset,
@@ -229,43 +230,53 @@ h1 {
 
 .level-coconut::before {
   background:
-    radial-gradient(circle at 8% 12%, rgba(255, 255, 255, 0.45) 0 5%, transparent 6%),
-    radial-gradient(circle at 88% 82%, rgba(37, 135, 73, 0.22) 0 12%, transparent 13%);
+    radial-gradient(ellipse at 9% 86%, rgba(255, 255, 255, 0.55) 0 12%, transparent 13%),
+    radial-gradient(ellipse at 64% 28%, rgba(255, 238, 170, 0.45) 0 12%, transparent 13%),
+    radial-gradient(ellipse at 85% 28%, rgba(120, 82, 45, 0.16) 0 20%, transparent 21%),
+    linear-gradient(155deg, transparent 0 62%, rgba(78, 139, 71, 0.16) 63% 76%, transparent 77%);
 }
 
 .level-mist {
   background:
-    radial-gradient(circle at 70% 30%, #577064 0 9%, transparent 10%),
-    radial-gradient(circle at 24% 76%, #526b60 0 10%, transparent 11%),
+    radial-gradient(ellipse at 79% 26%, rgba(92, 111, 101, 0.74) 0 20%, transparent 21%),
+    radial-gradient(ellipse at 24% 73%, rgba(78, 99, 91, 0.74) 0 18%, transparent 19%),
+    radial-gradient(ellipse at 52% 50%, rgba(203, 218, 215, 0.18) 0 16%, transparent 17%),
+    linear-gradient(120deg, rgba(93, 107, 113, 0.28) 0 22%, transparent 23% 54%, rgba(84, 104, 105, 0.32) 55% 75%, transparent 76%),
     linear-gradient(#7c8790, #4f5a61);
   border-color: #33414a;
 }
 
 .level-mist::before {
   background:
-    linear-gradient(12deg, transparent 12%, rgba(235, 244, 242, 0.42) 16%, transparent 26%),
-    linear-gradient(-10deg, transparent 42%, rgba(235, 244, 242, 0.35) 48%, transparent 61%),
-    linear-gradient(6deg, transparent 68%, rgba(235, 244, 242, 0.25) 73%, transparent 84%);
+    linear-gradient(12deg, transparent 10%, rgba(235, 244, 242, 0.46) 16%, transparent 27%),
+    linear-gradient(-10deg, transparent 36%, rgba(235, 244, 242, 0.38) 45%, transparent 60%),
+    linear-gradient(6deg, transparent 65%, rgba(235, 244, 242, 0.30) 72%, transparent 86%),
+    radial-gradient(ellipse at 80% 26%, rgba(40, 50, 55, 0.22) 0 17%, transparent 18%);
 }
 
 .level-volcano {
   background:
-    radial-gradient(circle at 76% 22%, #6b3027 0 10%, transparent 11%),
-    radial-gradient(circle at 24% 70%, #80372b 0 12%, transparent 13%),
+    radial-gradient(ellipse at 78% 22%, rgba(95, 35, 28, 0.78) 0 19%, transparent 20%),
+    radial-gradient(ellipse at 28% 70%, rgba(104, 53, 43, 0.72) 0 18%, transparent 19%),
+    radial-gradient(ellipse at 60% 52%, rgba(255, 115, 43, 0.20) 0 12%, transparent 13%),
+    linear-gradient(135deg, transparent 0 28%, rgba(65, 43, 43, 0.34) 29% 39%, transparent 40% 68%, rgba(65, 43, 43, 0.30) 69% 77%, transparent 78%),
     linear-gradient(#9b4b31, #4a2926);
   border-color: #552018;
 }
 
 .level-volcano::before {
   background:
-    linear-gradient(120deg, transparent 18%, rgba(255, 92, 35, 0.35) 20%, transparent 25%),
-    linear-gradient(30deg, transparent 62%, rgba(255, 177, 52, 0.25) 66%, transparent 72%);
+    linear-gradient(120deg, transparent 18%, rgba(255, 92, 35, 0.38) 20%, transparent 28%),
+    linear-gradient(30deg, transparent 55%, rgba(255, 177, 52, 0.30) 61%, transparent 71%),
+    radial-gradient(ellipse at 80% 24%, rgba(255, 214, 74, 0.18) 0 18%, transparent 19%);
 }
 
 .level-treasure {
   background:
-    radial-gradient(circle at 72% 28%, #ffe680 0 9%, transparent 10%),
-    radial-gradient(circle at 28% 70%, #8ed96f 0 11%, transparent 12%),
+    radial-gradient(ellipse at 82% 32%, rgba(255, 230, 128, 0.72) 0 16%, transparent 17%),
+    radial-gradient(ellipse at 30% 70%, rgba(142, 217, 111, 0.68) 0 18%, transparent 19%),
+    radial-gradient(ellipse at 72% 50%, rgba(107, 72, 47, 0.16) 0 17%, transparent 18%),
+    linear-gradient(105deg, rgba(98, 183, 214, 0.64) 0 14%, transparent 15%),
     linear-gradient(#f7d56b, #62b7d6);
   border-color: #f2c14e;
   box-shadow:
@@ -285,17 +296,17 @@ h1 {
 }
 
 .level-volcano .volcano-effect::before {
-  left: 48px;
-  bottom: 78px;
-  width: 150px;
-  transform: rotate(-12deg);
+  left: 246px;
+  bottom: 228px;
+  width: 160px;
+  transform: rotate(-18deg);
 }
 
 .level-volcano .volcano-effect::after {
-  right: 74px;
-  bottom: 132px;
-  width: 120px;
-  transform: rotate(18deg);
+  right: 92px;
+  bottom: 182px;
+  width: 140px;
+  transform: rotate(24deg);
 }
 
 .island-effects,
@@ -336,13 +347,13 @@ h1 {
 }
 
 .tree-one {
-  left: 22px;
-  top: 24px;
+  left: 92px;
+  top: 62px;
 }
 
 .tree-two {
-  right: 36px;
-  bottom: 48px;
+  right: 96px;
+  bottom: 72px;
 }
 
 .cloud {
@@ -353,11 +364,11 @@ h1 {
 }
 
 .cloud-one {
-  left: 95px;
+  left: 178px;
 }
 
 .cloud-two {
-  right: 120px;
+  right: 84px;
   animation-duration: 12s;
 }
 
@@ -369,13 +380,13 @@ h1 {
 }
 
 .wave-one {
-  left: 18px;
-  bottom: 16px;
+  left: 20px;
+  bottom: 26px;
 }
 
 .wave-two {
-  right: 24px;
-  top: 88px;
+  left: 42px;
+  top: 160px;
   animation-delay: 0.5s;
 }
 
@@ -391,32 +402,32 @@ h1 {
 }
 
 .fog-one {
-  top: 70px;
+  top: 82px;
 }
 
 .fog-two {
-  top: 170px;
+  top: 204px;
   opacity: 0.85;
   animation-duration: 10s;
 }
 
 .fog-three {
-  top: 278px;
+  top: 318px;
   opacity: 0.65;
   animation-duration: 12s;
 }
 
 .volcano {
-  right: 36px;
-  top: 18px;
+  right: 86px;
+  top: 36px;
   font-size: 46px;
   filter: drop-shadow(0 5px 2px rgba(0, 0, 0, 0.25));
 }
 
 .smoke {
   position: absolute;
-  right: 58px;
-  top: 12px;
+  right: 112px;
+  top: 30px;
   width: 18px;
   height: 18px;
   border-radius: 50%;
@@ -426,12 +437,12 @@ h1 {
 }
 
 .smoke-two {
-  right: 42px;
+  right: 96px;
   animation-delay: 0.5s;
 }
 
 .smoke-three {
-  right: 70px;
+  right: 124px;
   animation-delay: 1s;
 }
 

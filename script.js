@@ -68,8 +68,8 @@ const gunCooldownDuration = 0.9;
 const bulletSpeed = 420;
 const dashDistance = 90;
 const dashCooldownDuration = 2;
-const chestPosition = { x: 650, y: 410 };
-const playerStartPosition = { x: 35, y: 410 };
+const chestPosition = { x: 626, y: 398 };
+const playerStartPosition = { x: 46, y: 400 };
 
 let player;
 let playerX;
@@ -122,8 +122,20 @@ const levelConfig = {
       question: "Which island sign points to the next sea route?",
       choices: ["Clouds", "Lava", "Fog"],
       correctChoice: 0,
-      boss: { name: "Giant Crab", type: "crab", icon: "\uD83E\uDD80", x: 350, y: 145, speed: 95, hp: 5 },
-      enemies: [{ x: 330, y: 235, minX: 145, maxX: 585, speed: 120 }],
+      boss: { name: "Giant Crab", type: "crab", icon: "\uD83E\uDD80", x: 560, y: 118, speed: 95, hp: 5 },
+      enemies: [{ x: 318, y: 260, minX: 210, maxX: 515, speed: 120 }],
+      coinPositions: [
+        { x: 95, y: 382 },
+        { x: 150, y: 350 },
+        { x: 210, y: 322 },
+        { x: 270, y: 292 },
+        { x: 330, y: 254 },
+        { x: 390, y: 220 },
+        { x: 452, y: 178 },
+        { x: 525, y: 150 },
+        { x: 615, y: 188 },
+        { x: 650, y: 280 }
+      ],
       lavaTraps: []
     },
     {
@@ -134,10 +146,24 @@ const levelConfig = {
       question: "What should the pirate follow through Mist Island?",
       choices: ["Coconut trees", "Fog", "Volcano smoke"],
       correctChoice: 1,
-      boss: { name: "Fog Ghost", type: "fog", icon: "\uD83D\uDC7B", x: 360, y: 110, speed: 105, hp: 7 },
+      boss: { name: "Fog Ghost", type: "fog", icon: "\uD83D\uDC7B", x: 565, y: 95, speed: 105, hp: 7 },
       enemies: [
-        { x: 180, y: 145, minX: 80, maxX: 350, speed: 135 },
-        { x: 540, y: 325, minX: 410, maxX: 655, speed: 150 }
+        { x: 190, y: 176, minX: 92, maxX: 360, speed: 135 },
+        { x: 512, y: 342, minX: 405, maxX: 658, speed: 150 }
+      ],
+      coinPositions: [
+        { x: 104, y: 365 },
+        { x: 168, y: 300 },
+        { x: 255, y: 350 },
+        { x: 330, y: 292 },
+        { x: 428, y: 330 },
+        { x: 575, y: 374 },
+        { x: 640, y: 288 },
+        { x: 560, y: 212 },
+        { x: 472, y: 150 },
+        { x: 370, y: 118 },
+        { x: 255, y: 92 },
+        { x: 118, y: 142 }
       ],
       lavaTraps: []
     },
@@ -149,15 +175,32 @@ const levelConfig = {
       question: "What marks the final treasure route?",
       choices: ["Ocean waves", "Coconut leaves", "Volcano smoke"],
       correctChoice: 2,
-      boss: { name: "Lava Beast", type: "lava", icon: "\uD83D\uDD25", x: 365, y: 115, speed: 120, hp: 9 },
+      boss: { name: "Lava Beast", type: "lava", icon: "\uD83D\uDD25", x: 548, y: 92, speed: 120, hp: 9 },
       enemies: [
-        { x: 170, y: 140, minX: 70, maxX: 340, speed: 150 },
-        { x: 560, y: 330, minX: 410, maxX: 660, speed: 165 }
+        { x: 184, y: 170, minX: 92, maxX: 322, speed: 150 },
+        { x: 500, y: 326, minX: 405, maxX: 642, speed: 165 }
+      ],
+      coinPositions: [
+        { x: 92, y: 382 },
+        { x: 152, y: 318 },
+        { x: 230, y: 350 },
+        { x: 298, y: 292 },
+        { x: 378, y: 365 },
+        { x: 455, y: 306 },
+        { x: 610, y: 342 },
+        { x: 648, y: 245 },
+        { x: 585, y: 172 },
+        { x: 505, y: 124 },
+        { x: 390, y: 135 },
+        { x: 312, y: 92 },
+        { x: 198, y: 112 },
+        { x: 124, y: 208 },
+        { x: 348, y: 224 }
       ],
       lavaTraps: [
-        { x: 255, y: 175 },
-        { x: 445, y: 240 },
-        { x: 305, y: 360 }
+        { x: 258, y: 208 },
+        { x: 445, y: 210 },
+        { x: 535, y: 265 }
       ]
     }
   ]
@@ -216,8 +259,8 @@ const ghostPirateBoss = {
   name: "Ghost Pirate",
   type: "ghostPirate",
   icon: "☠️",
-  x: 370,
-  y: 150,
+  x: 540,
+  y: 120,
   speed: 112,
   hp: 12
 };
@@ -227,46 +270,46 @@ const sideQuestConfigs = [
     island: "Coconut Island",
     npcName: "Shell Scout",
     npcIcon: "🧑",
-    npc: { x: 95, y: 120 },
+    npc: { x: 92, y: 342 },
     objective: "Collect 3 shells",
     itemName: "shells",
     itemIcon: "🐚",
     target: 3,
     reward: "3 coins",
     positions: [
-      { x: 120, y: 285 },
-      { x: 420, y: 60 },
-      { x: 615, y: 300 }
+      { x: 150, y: 410 },
+      { x: 255, y: 170 },
+      { x: 642, y: 336 }
     ]
   },
   {
     island: "Mist Island",
     npcName: "Fog Keeper",
     npcIcon: "🧙",
-    npc: { x: 105, y: 118 },
+    npc: { x: 92, y: 350 },
     objective: "Collect 2 ghost lights",
     itemName: "ghost lights",
     itemIcon: "✨",
     target: 2,
     reward: "heal 1 HP",
     positions: [
-      { x: 250, y: 340 },
-      { x: 600, y: 130 }
+      { x: 252, y: 255 },
+      { x: 604, y: 148 }
     ]
   },
   {
     island: "Volcano Island",
     npcName: "Ash Miner",
     npcIcon: "⛏️",
-    npc: { x: 115, y: 118 },
+    npc: { x: 90, y: 354 },
     objective: "Collect 2 fire stones",
     itemName: "fire stones",
     itemIcon: "🪨",
     target: 2,
     reward: "4 coins and a boss hint",
     positions: [
-      { x: 210, y: 300 },
-      { x: 590, y: 185 }
+      { x: 218, y: 268 },
+      { x: 616, y: 178 }
     ]
   }
 ];
@@ -284,9 +327,9 @@ const mysteryFruits = [
 ];
 
 const fruitPositions = [
-  { x: 135, y: 175 },
-  { x: 545, y: 155 },
-  { x: 385, y: 320 }
+  { x: 360, y: 320 },
+  { x: 512, y: 260 },
+  { x: 430, y: 392 }
 ];
 
 const coinPositions = [
@@ -378,7 +421,7 @@ function startLevel() {
   chestElement.style.top = `${chestPosition.y}px`;
 
   applyLevelStyle(level);
-  createCoins(level.coinCount);
+  createCoins(level);
   createEnemies(level.enemies);
   createLavaTraps(level.lavaTraps);
   createMysteryFruit();
@@ -392,10 +435,12 @@ function applyLevelStyle(level) {
   gameArea.classList.add(level.className);
 }
 
-function createCoins(coinCount) {
+function createCoins(level) {
   document.querySelectorAll(".coin").forEach((coin) => coin.remove());
 
-  coins = coinPositions.slice(0, coinCount).map((position) => {
+  const positions = level.coinPositions || coinPositions;
+
+  coins = positions.slice(0, level.coinCount).map((position) => {
     const coinElement = document.createElement("div");
     coinElement.className = "sprite coin";
     coinElement.textContent = "🪙";
@@ -576,8 +621,8 @@ function createGrandTreasure() {
   gameArea.appendChild(element);
 
   grandTreasure = {
-    x: 585,
-    y: 235,
+    x: 612,
+    y: 228,
     element
   };
 }
