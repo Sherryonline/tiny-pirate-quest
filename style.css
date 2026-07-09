@@ -122,10 +122,15 @@ h1 {
   height: 480px;
   margin: 0 auto;
   overflow: hidden;
+  --camera-offset-x: 0px;
+  --camera-offset-y: 0px;
   background:
     radial-gradient(circle at 72% 30%, #79c86b 0 8%, transparent 9%),
     radial-gradient(circle at 26% 75%, #7fca70 0 7%, transparent 8%),
     #f2cf77;
+  background-position: var(--camera-offset-x) var(--camera-offset-y);
+  background-repeat: no-repeat;
+  background-size: 1200px 800px;
   border: 5px solid #8b5a2b;
   border-radius: 8px;
   box-shadow: 0 8px 0 rgba(0, 0, 0, 0.15);
@@ -208,6 +213,9 @@ h1 {
   inset: 0;
   pointer-events: none;
   z-index: 1;
+  background-position: var(--camera-offset-x) var(--camera-offset-y);
+  background-repeat: no-repeat;
+  background-size: 1200px 800px;
 }
 
 .game-area.shake {
@@ -314,12 +322,16 @@ h1 {
 .mist-effect,
 .volcano-effect {
   position: absolute;
-  inset: 0;
+  left: 0;
+  top: 0;
+  width: 1200px;
+  height: 800px;
   pointer-events: none;
 }
 
 .island-effects {
   z-index: 2;
+  transform: translate(var(--camera-offset-x), var(--camera-offset-y));
 }
 
 .coconut-effect,

@@ -55,6 +55,8 @@ const startAdventureButton = document.getElementById("startAdventureButton");
 
 const gameWidth = 720;
 const gameHeight = 480;
+const worldWidth = 1200;
+const worldHeight = 800;
 const spriteSize = 34;
 const basePlayerSpeed = 220;
 const baseMaxHealth = 3;
@@ -68,12 +70,14 @@ const gunCooldownDuration = 0.9;
 const bulletSpeed = 420;
 const dashDistance = 90;
 const dashCooldownDuration = 2;
-const chestPosition = { x: 626, y: 398 };
-const playerStartPosition = { x: 46, y: 400 };
+const chestPosition = { x: 1085, y: 712 };
+const playerStartPosition = { x: 72, y: 710 };
 
 let player;
 let playerX;
 let playerY;
+let cameraX = 0;
+let cameraY = 0;
 let enemies;
 let lavaTraps;
 let boss;
@@ -122,19 +126,19 @@ const levelConfig = {
       question: "Which island sign points to the next sea route?",
       choices: ["Clouds", "Lava", "Fog"],
       correctChoice: 0,
-      boss: { name: "Giant Crab", type: "crab", icon: "\uD83E\uDD80", x: 560, y: 118, speed: 95, hp: 5 },
-      enemies: [{ x: 318, y: 260, minX: 210, maxX: 515, speed: 120 }],
+      boss: { name: "Giant Crab", type: "crab", icon: "\uD83E\uDD80", x: 960, y: 170, speed: 95, hp: 5 },
+      enemies: [{ x: 520, y: 470, minX: 370, maxX: 735, speed: 120 }],
       coinPositions: [
-        { x: 95, y: 382 },
-        { x: 150, y: 350 },
-        { x: 210, y: 322 },
-        { x: 270, y: 292 },
-        { x: 330, y: 254 },
-        { x: 390, y: 220 },
-        { x: 452, y: 178 },
-        { x: 525, y: 150 },
-        { x: 615, y: 188 },
-        { x: 650, y: 280 }
+        { x: 120, y: 675 },
+        { x: 210, y: 630 },
+        { x: 315, y: 590 },
+        { x: 430, y: 535 },
+        { x: 550, y: 475 },
+        { x: 670, y: 410 },
+        { x: 795, y: 330 },
+        { x: 910, y: 245 },
+        { x: 1035, y: 205 },
+        { x: 1095, y: 365 }
       ],
       lavaTraps: []
     },
@@ -146,24 +150,24 @@ const levelConfig = {
       question: "What should the pirate follow through Mist Island?",
       choices: ["Coconut trees", "Fog", "Volcano smoke"],
       correctChoice: 1,
-      boss: { name: "Fog Ghost", type: "fog", icon: "\uD83D\uDC7B", x: 565, y: 95, speed: 105, hp: 7 },
+      boss: { name: "Fog Ghost", type: "fog", icon: "\uD83D\uDC7B", x: 940, y: 170, speed: 105, hp: 7 },
       enemies: [
-        { x: 190, y: 176, minX: 92, maxX: 360, speed: 135 },
-        { x: 512, y: 342, minX: 405, maxX: 658, speed: 150 }
+        { x: 325, y: 445, minX: 160, maxX: 505, speed: 135 },
+        { x: 760, y: 585, minX: 650, maxX: 1035, speed: 150 }
       ],
       coinPositions: [
-        { x: 104, y: 365 },
-        { x: 168, y: 300 },
-        { x: 255, y: 350 },
-        { x: 330, y: 292 },
-        { x: 428, y: 330 },
-        { x: 575, y: 374 },
-        { x: 640, y: 288 },
-        { x: 560, y: 212 },
-        { x: 472, y: 150 },
-        { x: 370, y: 118 },
-        { x: 255, y: 92 },
-        { x: 118, y: 142 }
+        { x: 120, y: 672 },
+        { x: 230, y: 610 },
+        { x: 360, y: 650 },
+        { x: 475, y: 560 },
+        { x: 610, y: 610 },
+        { x: 760, y: 648 },
+        { x: 930, y: 600 },
+        { x: 1050, y: 485 },
+        { x: 950, y: 345 },
+        { x: 760, y: 260 },
+        { x: 550, y: 210 },
+        { x: 310, y: 260 }
       ],
       lavaTraps: []
     },
@@ -175,32 +179,33 @@ const levelConfig = {
       question: "What marks the final treasure route?",
       choices: ["Ocean waves", "Coconut leaves", "Volcano smoke"],
       correctChoice: 2,
-      boss: { name: "Lava Beast", type: "lava", icon: "\uD83D\uDD25", x: 548, y: 92, speed: 120, hp: 9 },
+      boss: { name: "Lava Beast", type: "lava", icon: "\uD83D\uDD25", x: 910, y: 150, speed: 120, hp: 9 },
       enemies: [
-        { x: 184, y: 170, minX: 92, maxX: 322, speed: 150 },
-        { x: 500, y: 326, minX: 405, maxX: 642, speed: 165 }
+        { x: 315, y: 430, minX: 165, maxX: 455, speed: 150 },
+        { x: 735, y: 600, minX: 600, maxX: 1015, speed: 165 }
       ],
       coinPositions: [
-        { x: 92, y: 382 },
-        { x: 152, y: 318 },
-        { x: 230, y: 350 },
-        { x: 298, y: 292 },
-        { x: 378, y: 365 },
-        { x: 455, y: 306 },
-        { x: 610, y: 342 },
-        { x: 648, y: 245 },
-        { x: 585, y: 172 },
-        { x: 505, y: 124 },
-        { x: 390, y: 135 },
-        { x: 312, y: 92 },
-        { x: 198, y: 112 },
-        { x: 124, y: 208 },
-        { x: 348, y: 224 }
+        { x: 120, y: 682 },
+        { x: 205, y: 605 },
+        { x: 340, y: 648 },
+        { x: 475, y: 570 },
+        { x: 600, y: 680 },
+        { x: 720, y: 570 },
+        { x: 930, y: 620 },
+        { x: 1055, y: 500 },
+        { x: 1000, y: 350 },
+        { x: 875, y: 235 },
+        { x: 710, y: 245 },
+        { x: 570, y: 185 },
+        { x: 390, y: 220 },
+        { x: 235, y: 315 },
+        { x: 540, y: 395 }
       ],
       lavaTraps: [
-        { x: 258, y: 208 },
-        { x: 445, y: 210 },
-        { x: 535, y: 265 }
+        { x: 430, y: 370 },
+        { x: 680, y: 390 },
+        { x: 860, y: 445 },
+        { x: 1010, y: 275 }
       ]
     }
   ]
@@ -259,8 +264,8 @@ const ghostPirateBoss = {
   name: "Ghost Pirate",
   type: "ghostPirate",
   icon: "☠️",
-  x: 540,
-  y: 120,
+  x: 900,
+  y: 240,
   speed: 112,
   hp: 12
 };
@@ -270,46 +275,46 @@ const sideQuestConfigs = [
     island: "Coconut Island",
     npcName: "Shell Scout",
     npcIcon: "🧑",
-    npc: { x: 92, y: 342 },
+    npc: { x: 150, y: 650 },
     objective: "Collect 3 shells",
     itemName: "shells",
     itemIcon: "🐚",
     target: 3,
     reward: "3 coins",
     positions: [
-      { x: 150, y: 410 },
-      { x: 255, y: 170 },
-      { x: 642, y: 336 }
+      { x: 210, y: 730 },
+      { x: 520, y: 275 },
+      { x: 1100, y: 530 }
     ]
   },
   {
     island: "Mist Island",
     npcName: "Fog Keeper",
     npcIcon: "🧙",
-    npc: { x: 92, y: 350 },
+    npc: { x: 150, y: 650 },
     objective: "Collect 2 ghost lights",
     itemName: "ghost lights",
     itemIcon: "✨",
     target: 2,
     reward: "heal 1 HP",
     positions: [
-      { x: 252, y: 255 },
-      { x: 604, y: 148 }
+      { x: 430, y: 430 },
+      { x: 1035, y: 260 }
     ]
   },
   {
     island: "Volcano Island",
     npcName: "Ash Miner",
     npcIcon: "⛏️",
-    npc: { x: 90, y: 354 },
+    npc: { x: 145, y: 648 },
     objective: "Collect 2 fire stones",
     itemName: "fire stones",
     itemIcon: "🪨",
     target: 2,
     reward: "4 coins and a boss hint",
     positions: [
-      { x: 218, y: 268 },
-      { x: 616, y: 178 }
+      { x: 390, y: 435 },
+      { x: 1045, y: 290 }
     ]
   }
 ];
@@ -327,9 +332,9 @@ const mysteryFruits = [
 ];
 
 const fruitPositions = [
-  { x: 360, y: 320 },
-  { x: 512, y: 260 },
-  { x: 430, y: 392 }
+  { x: 600, y: 620 },
+  { x: 830, y: 470 },
+  { x: 690, y: 690 }
 ];
 
 const coinPositions = [
@@ -621,8 +626,8 @@ function createGrandTreasure() {
   gameArea.appendChild(element);
 
   grandTreasure = {
-    x: 612,
-    y: 228,
+    x: 1060,
+    y: 310,
     element
   };
 }
@@ -708,14 +713,18 @@ function getQuestObjective() {
 }
 
 function getQuestHint() {
+  let hint;
+
   if (introActive) {
-    return "Press Start Adventure when ready.";
+    hint = "Press Start Adventure when ready.";
+    return hint;
   }
 
   if (finalIslandActive) {
-    return ghostPirateDefeated
+    hint = ghostPirateDefeated
       ? "Reach the Grand Treasure and open it."
       : "Defeat the Ghost Pirate first. Dash away from warning attacks.";
+    return appendObjectiveDirection(hint);
   }
 
   if (isUpgradeMenuOpen()) {
@@ -731,14 +740,65 @@ function getQuestHint() {
   }
 
   if (bossActive) {
-    return "Attack during rest or stun. Dash away during chase.";
+    hint = "Attack during rest or stun. Dash away during chase.";
+    return appendObjectiveDirection(hint);
   }
 
   if (score < levels[currentLevelIndex].coinCount) {
-    return "Collect every visible coin to summon the boss.";
+    hint = "Collect every visible coin to summon the boss.";
+    return appendObjectiveDirection(hint);
   }
 
-  return "Follow the next panel or map prompt.";
+  hint = "Follow the next panel or map prompt.";
+  return appendObjectiveDirection(hint);
+}
+
+function appendObjectiveDirection(hint) {
+  const target = getCurrentObjectiveTarget();
+
+  if (!target) {
+    return hint;
+  }
+
+  const distance = Math.hypot(target.x - player.x, target.y - player.y);
+
+  if (distance < 180) {
+    return hint;
+  }
+
+  return `${hint} ${getDirectionArrow(target)} ${Math.round(distance)} steps away.`;
+}
+
+function getCurrentObjectiveTarget() {
+  if (finalIslandActive) {
+    return ghostPirateDefeated ? grandTreasure : boss;
+  }
+
+  if (bossActive) {
+    return boss;
+  }
+
+  const nextCoin = coins.find((coin) => !coin.collected);
+  if (nextCoin) {
+    return nextCoin;
+  }
+
+  if (routeUnlocked) {
+    return chestPosition;
+  }
+
+  return npc;
+}
+
+function getDirectionArrow(target) {
+  const dx = target.x - player.x;
+  const dy = target.y - player.y;
+
+  if (Math.abs(dx) > Math.abs(dy)) {
+    return dx > 0 ? "Head east ->" : "Head west <-";
+  }
+
+  return dy > 0 ? "Head south v" : "Head north ^";
 }
 
 function getNextActionText() {
@@ -896,79 +956,110 @@ function showToast(message) {
 }
 
 function drawSprites() {
-  playerElement.style.left = `${player.x}px`;
-  playerElement.style.top = `${player.y}px`;
+  updateCamera();
+
+  playerElement.style.left = `${toScreenX(player.x)}px`;
+  playerElement.style.top = `${toScreenY(player.y)}px`;
 
   enemies.forEach((enemy) => {
-    enemy.element.style.left = `${enemy.x}px`;
-    enemy.element.style.top = `${enemy.y}px`;
+    enemy.element.style.left = `${toScreenX(enemy.x)}px`;
+    enemy.element.style.top = `${toScreenY(enemy.y)}px`;
   });
 
   coins.forEach((coin) => {
-    coin.element.style.left = `${coin.x}px`;
-    coin.element.style.top = `${coin.y}px`;
+    coin.element.style.left = `${toScreenX(coin.x)}px`;
+    coin.element.style.top = `${toScreenY(coin.y)}px`;
     coin.element.style.display = coin.collected ? "none" : "grid";
   });
 
   sideQuestItems.forEach((item) => {
-    item.element.style.left = `${item.x}px`;
-    item.element.style.top = `${item.y}px`;
+    item.element.style.left = `${toScreenX(item.x)}px`;
+    item.element.style.top = `${toScreenY(item.y)}px`;
     item.element.style.display = item.collected ? "none" : "grid";
   });
 
   if (npc) {
-    npc.element.style.left = `${npc.x}px`;
-    npc.element.style.top = `${npc.y}px`;
+    npc.element.style.left = `${toScreenX(npc.x)}px`;
+    npc.element.style.top = `${toScreenY(npc.y)}px`;
   }
 
   lavaTraps.forEach((lava) => {
-    lava.element.style.left = `${lava.x}px`;
-    lava.element.style.top = `${lava.y}px`;
+    lava.element.style.left = `${toScreenX(lava.x)}px`;
+    lava.element.style.top = `${toScreenY(lava.y)}px`;
   });
 
   lavaBursts.forEach((burst) => {
-    burst.element.style.left = `${burst.x}px`;
-    burst.element.style.top = `${burst.y}px`;
+    burst.element.style.left = `${toScreenX(burst.x)}px`;
+    burst.element.style.top = `${toScreenY(burst.y)}px`;
   });
 
   bullets.forEach((bullet) => {
-    bullet.element.style.left = `${bullet.x}px`;
-    bullet.element.style.top = `${bullet.y}px`;
+    bullet.element.style.left = `${toScreenX(bullet.x)}px`;
+    bullet.element.style.top = `${toScreenY(bullet.y)}px`;
   });
 
   if (mysteryFruit) {
-    mysteryFruit.element.style.left = `${mysteryFruit.x}px`;
-    mysteryFruit.element.style.top = `${mysteryFruit.y}px`;
+    mysteryFruit.element.style.left = `${toScreenX(mysteryFruit.x)}px`;
+    mysteryFruit.element.style.top = `${toScreenY(mysteryFruit.y)}px`;
     mysteryFruit.element.style.display = mysteryFruit.collected ? "none" : "grid";
   }
 
   if (boss) {
-    boss.element.style.left = `${boss.x}px`;
-    boss.element.style.top = `${boss.y}px`;
+    boss.element.style.left = `${toScreenX(boss.x)}px`;
+    boss.element.style.top = `${toScreenY(boss.y)}px`;
   }
 
   if (grandTreasure) {
-    grandTreasure.element.style.left = `${grandTreasure.x}px`;
-    grandTreasure.element.style.top = `${grandTreasure.y}px`;
+    grandTreasure.element.style.left = `${toScreenX(grandTreasure.x)}px`;
+    grandTreasure.element.style.top = `${toScreenY(grandTreasure.y)}px`;
   }
+
+  chestElement.style.left = `${toScreenX(chestPosition.x)}px`;
+  chestElement.style.top = `${toScreenY(chestPosition.y)}px`;
 
   updateHpLabels();
 }
 
+function updateCamera() {
+  cameraX = keepInside(player.x + spriteSize / 2 - gameWidth / 2, worldWidth - gameWidth);
+  cameraY = keepInside(player.y + spriteSize / 2 - gameHeight / 2, worldHeight - gameHeight);
+  gameArea.style.setProperty("--camera-x", cameraX);
+  gameArea.style.setProperty("--camera-y", cameraY);
+  gameArea.style.setProperty("--camera-offset-x", `${-cameraX}px`);
+  gameArea.style.setProperty("--camera-offset-y", `${-cameraY}px`);
+}
+
+function toScreenX(worldX) {
+  return worldX - cameraX;
+}
+
+function toScreenY(worldY) {
+  return worldY - cameraY;
+}
+
 function updateHpLabels() {
   playerHpLabel.textContent = `HP: ${health}`;
-  playerHpLabel.style.left = `${keepInside(player.x - 7, gameWidth - 48)}px`;
-  playerHpLabel.style.top = `${keepInside(player.y + spriteSize + 2, gameHeight - 16)}px`;
+  playerHpLabel.style.left = `${keepInside(toScreenX(player.x) - 7, gameWidth - 48)}px`;
+  playerHpLabel.style.top = `${keepInside(toScreenY(player.y) + spriteSize + 2, gameHeight - 16)}px`;
 
-  if (bossActive && boss) {
+  if (bossActive && boss && isNearViewport(boss)) {
     bossHpLabel.textContent = `Boss HP: ${boss.hp}`;
-    bossHpLabel.style.left = `${keepInside(boss.x - 15, gameWidth - 72)}px`;
-    bossHpLabel.style.top = `${keepInside(boss.y + 44, gameHeight - 16)}px`;
+    bossHpLabel.style.left = `${keepInside(toScreenX(boss.x) - 15, gameWidth - 72)}px`;
+    bossHpLabel.style.top = `${keepInside(toScreenY(boss.y) + 44, gameHeight - 16)}px`;
     bossHpLabel.classList.remove("hidden");
     return;
   }
 
   bossHpLabel.classList.add("hidden");
+}
+
+function isNearViewport(sprite) {
+  return (
+    toScreenX(sprite.x) > -spriteSize &&
+    toScreenX(sprite.x) < gameWidth + spriteSize &&
+    toScreenY(sprite.y) > -spriteSize &&
+    toScreenY(sprite.y) < gameHeight + spriteSize
+  );
 }
 
 function movePlayer(deltaTime) {
@@ -996,8 +1087,8 @@ function movePlayer(deltaTime) {
   playerX += moveX * getPlayerSpeed() * deltaTime;
   playerY += moveY * getPlayerSpeed() * deltaTime;
 
-  playerX = keepInside(playerX, gameWidth - spriteSize);
-  playerY = keepInside(playerY, gameHeight - spriteSize);
+  playerX = keepInside(playerX, worldWidth - spriteSize);
+  playerY = keepInside(playerY, worldHeight - spriteSize);
 
   player.x = playerX;
   player.y = playerY;
@@ -1015,8 +1106,8 @@ function dashPlayer() {
 
   const dashDirection = getDirectionVector(lastDirection);
 
-  playerX = keepInside(playerX + dashDirection.x * dashDistance, gameWidth - spriteSize);
-  playerY = keepInside(playerY + dashDirection.y * dashDistance, gameHeight - spriteSize);
+  playerX = keepInside(playerX + dashDirection.x * dashDistance, worldWidth - spriteSize);
+  playerY = keepInside(playerY + dashDirection.y * dashDistance, worldHeight - spriteSize);
   player.x = playerX;
   player.y = playerY;
   dashCooldown = dashCooldownDuration;
@@ -1401,8 +1492,8 @@ function createLavaBurst(x, y) {
   gameArea.appendChild(element);
 
   lavaBursts.push({
-    x: keepInside(x - 12, gameWidth - 58),
-    y: keepInside(y - 12, gameHeight - 58),
+    x: keepInside(x - 12, worldWidth - 58),
+    y: keepInside(y - 12, worldHeight - 58),
     state: "warning",
     timer: 0.85,
     element
@@ -1442,8 +1533,8 @@ function updateGhostPirateDash(deltaTime) {
     boss.warningAttackTimer = Math.max(0, boss.warningAttackTimer - deltaTime);
 
     if (boss.warningAttackTimer === 0 && boss.dashAttackVector) {
-      boss.x = keepInside(boss.x + boss.dashAttackVector.x * 145, gameWidth - spriteSize);
-      boss.y = keepInside(boss.y + boss.dashAttackVector.y * 145, gameHeight - spriteSize);
+      boss.x = keepInside(boss.x + boss.dashAttackVector.x * 145, worldWidth - spriteSize);
+      boss.y = keepInside(boss.y + boss.dashAttackVector.y * 145, worldHeight - spriteSize);
       boss.dashAttackVector = null;
       boss.element.classList.remove("dash-warning");
     }
@@ -1471,8 +1562,8 @@ function updateGhostPirateDash(deltaTime) {
 function showBossDashWarning() {
   const warning = document.createElement("div");
   warning.className = "dash-attack-warning";
-  warning.style.left = `${keepInside(player.x - 22, gameWidth - 78)}px`;
-  warning.style.top = `${keepInside(player.y - 22, gameHeight - 78)}px`;
+  warning.style.left = `${keepInside(toScreenX(player.x) - 22, gameWidth - 78)}px`;
+  warning.style.top = `${keepInside(toScreenY(player.y) - 22, gameHeight - 78)}px`;
   gameArea.appendChild(warning);
   setTimeout(() => warning.remove(), 760);
 }
@@ -1506,8 +1597,8 @@ function moveBoss(deltaTime) {
   const dy = player.y - boss.y;
   const distance = Math.hypot(dx, dy) || 1;
 
-  boss.x = keepInside(boss.x + (dx / distance) * getBossSpeed() * deltaTime, gameWidth - spriteSize);
-  boss.y = keepInside(boss.y + (dy / distance) * getBossSpeed() * deltaTime, gameHeight - spriteSize);
+  boss.x = keepInside(boss.x + (dx / distance) * getBossSpeed() * deltaTime, worldWidth - spriteSize);
+  boss.y = keepInside(boss.y + (dy / distance) * getBossSpeed() * deltaTime, worldHeight - spriteSize);
 }
 
 function getBossSpeed() {
@@ -1683,8 +1774,8 @@ function showSlashEffect(attackArea, direction) {
 
   slash.className = `slash-effect ${direction}`;
   slash.textContent = "⚔";
-  slash.style.left = `${keepInside(attackArea.x + attackArea.width / 2 - 17, gameWidth - 34)}px`;
-  slash.style.top = `${keepInside(attackArea.y + attackArea.height / 2 - 17, gameHeight - 34)}px`;
+  slash.style.left = `${keepInside(toScreenX(attackArea.x + attackArea.width / 2 - 17), gameWidth - 34)}px`;
+  slash.style.top = `${keepInside(toScreenY(attackArea.y + attackArea.height / 2 - 17), gameHeight - 34)}px`;
   gameArea.appendChild(slash);
   setTimeout(() => slash.remove(), 260);
 }
@@ -1723,7 +1814,7 @@ function updateBullets(deltaTime) {
     bullet.x += bullet.dx * bulletSpeed * deltaTime;
     bullet.y += bullet.dy * bulletSpeed * deltaTime;
 
-    if (bullet.x < -12 || bullet.x > gameWidth || bullet.y < -12 || bullet.y > gameHeight) {
+    if (bullet.x < -12 || bullet.x > worldWidth || bullet.y < -12 || bullet.y > worldHeight) {
       bullet.done = true;
       return;
     }
@@ -1782,8 +1873,8 @@ function showFloatingText(text, x, y, type) {
 
   floatingText.className = `floating-text ${type || ""}`.trim();
   floatingText.textContent = text;
-  floatingText.style.left = `${keepInside(x, gameWidth - 80)}px`;
-  floatingText.style.top = `${keepInside(y, gameHeight - 20)}px`;
+  floatingText.style.left = `${keepInside(toScreenX(x), gameWidth - 80)}px`;
+  floatingText.style.top = `${keepInside(toScreenY(y), gameHeight - 20)}px`;
   gameArea.appendChild(floatingText);
   setTimeout(() => floatingText.remove(), 850);
 }
@@ -1981,8 +2072,8 @@ function knockPlayerBack(source) {
   const distance = Math.hypot(dx, dy);
   const knockbackDistance = 45;
 
-  playerX = keepInside(playerX + (dx / distance) * knockbackDistance, gameWidth - spriteSize);
-  playerY = keepInside(playerY + (dy / distance) * knockbackDistance, gameHeight - spriteSize);
+  playerX = keepInside(playerX + (dx / distance) * knockbackDistance, worldWidth - spriteSize);
+  playerY = keepInside(playerY + (dy / distance) * knockbackDistance, worldHeight - spriteSize);
   player.x = playerX;
   player.y = playerY;
   drawSprites();
