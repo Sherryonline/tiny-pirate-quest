@@ -21,7 +21,9 @@ Collect coins -> Defeat boss -> Solve route clue -> Complete island -> Collect m
 ## Main Features
 
 - Top-down 2D browser game
+- Larger 720px x 480px island map
 - Keyboard movement with WASD and Arrow keys
+- Shift dash with cooldown
 - Three main islands with different rules and visuals
 - Final Treasure Island unlock
 - Coin collection and wallet system
@@ -29,6 +31,7 @@ Collect coins -> Defeat boss -> Solve route clue -> Complete island -> Collect m
 - Player HP shown under the player
 - Boss HP shown under the boss during boss fights
 - Space key boss attack with cooldown
+- Directional boss attacks with wider hitboxes and soft lock-on
 - Boss hit, damage, and defeat effects
 - Treasure route clue questions
 - World Map with locked, unlocked, current, and completed islands
@@ -69,16 +72,42 @@ Collect coins -> Defeat boss -> Solve route clue -> Complete island -> Collect m
 | Move Left | `A` or `Arrow Left` |
 | Move Right | `D` or `Arrow Right` |
 | Attack Boss | `Space` |
+| Dash | `Shift` |
 
 ## Boss Fight Rules
 
 | Rule | Result |
 |---|---|
 | Player collects all coins | Island boss appears |
-| Player presses Space near boss | Boss loses 1 HP |
+| Player presses Space near boss | Attack aims toward the boss if it is within lock-on range |
+| Boss overlaps the attack area | Boss loses 1 HP and is stunned briefly |
 | Player presses Space too far away | Status shows a move-closer message |
-| Boss touches player | Player loses 1 HP after damage cooldown |
+| Boss is chasing and touches player | Player loses 1 HP after damage cooldown |
+| Boss is resting or stunned | Boss does not damage the player |
 | Boss HP reaches 0 | Boss defeat effect plays, then route clue appears |
+
+Boss attacks use a directional hitbox:
+
+| Direction | Attack Area |
+|---|---|
+| Left / Right | 100px wide x 70px high |
+| Up / Down | 70px wide x 100px high |
+
+Bosses follow a simple rhythm:
+
+```text
+Chase for 3 seconds -> Rest for 1 second -> Repeat
+```
+
+Current boss speeds:
+
+| Boss | Speed |
+|---|---|
+| Giant Crab | 95 |
+| Fog Ghost | 105 |
+| Lava Beast | 120 |
+ 
+When hit, bosses are stunned for 0.8 seconds.
 
 ## Progression Systems
 
@@ -181,11 +210,15 @@ npm run check
 | Page load | Game screen displays correctly |
 | Movement | Player moves using WASD or Arrow keys |
 | Boundary | Player cannot move outside the game area |
+| Larger map | Game area displays as 720px x 480px |
 | Player HP | HP label follows the player |
+| Dash | Shift moves the player in the last movement direction and stays inside the map |
 | Coin collection | Coins disappear after collection |
 | Boss spawn | Boss appears after all coins are collected |
 | Boss HP | Boss HP label follows the boss |
-| Boss attack | Space damages boss only when close enough |
+| Boss attack | Space damages boss when boss overlaps the directional attack area |
+| Boss lock-on | Space aims toward nearby boss within lock-on range |
+| Boss rest/stun | Boss does not damage player while resting or stunned |
 | Boss defeat | Defeat animation plays and route clue appears |
 | Enemy damage | Health decreases with damage cooldown |
 | Lava damage | Health decreases and screen shakes |
@@ -195,7 +228,7 @@ npm run check
 | Upgrades | Purchased upgrades apply immediately |
 | Crew | Navigator and Cook unlock after the correct islands |
 | Final island | Unlocks after 3 Sea Map Fragments |
-| Final treasure | Shows final reward message |
+| Final treasure | Grand Treasure appears on the larger final map and shows final reward message |
 
 ## Development Workflow
 
