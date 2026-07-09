@@ -1,35 +1,56 @@
-# Tiny Pirate Quest 🏴‍☠️
+# Tiny Pirate Quest
 
-**Tiny Pirate Quest** is a simple one-player browser adventure game. The player controls a young pirate, collects coins, avoids a crab enemy, and opens the treasure chest to win.
+Tiny Pirate Quest is a simple one-player 2D browser adventure game built with HTML, CSS, and JavaScript.
 
-The game is inspired by cheerful pirate adventure and island exploration themes. It is built as a lightweight **vibe coding** practice project using simple HTML, CSS, and JavaScript.
+The player controls a young pirate, collects coins across island levels, defeats island bosses, unlocks sea routes, gathers map fragments, upgrades the ship, recruits crew members, and finally reaches Treasure Island.
 
 ## Game Objective
 
 ```text
-Collect coins → Avoid enemy → Open treasure chest → Win
+Collect coins -> Defeat boss -> Solve route clue -> Complete island -> Collect map fragments -> Reach Treasure Island
 ```
 
-## Features
+## Main Features
 
-- One-player 2D browser game
-- Top-down island-style game area
-- Pirate player movement
-- Coin collection and score tracking
-- Crab enemy obstacle
-- Health system
-- Treasure chest win condition
-- Game status message
-- Simple project structure for learning and testing
+- Top-down 2D browser game
+- Keyboard movement with WASD and Arrow keys
+- Three main islands with different rules and visuals
+- Final Treasure Island unlock
+- Coin collection and wallet system
+- Enemy, lava, and boss collision damage
+- Player HP shown under the player
+- Boss HP shown under the boss during boss fights
+- Space key boss attack with cooldown
+- Boss hit, damage, and defeat effects
+- Treasure route clue questions
+- World Map with locked, unlocked, current, and completed islands
+- Sea Map Fragment progression
+- Crew system with Navigator and Cook
+- Ship upgrade menu
+- Mystery Fruit power-ups
+- Restart Adventure flow
+- Unit tests for core game logic
+
+## Islands
+
+| Level | Island | Goal | Hazards |
+|---|---|---|---|
+| 1 | Coconut Island | Collect 10 coins | 1 crab, Giant Crab boss |
+| 2 | Mist Island | Collect 12 coins | 2 enemies, Fog Ghost boss |
+| 3 | Volcano Island | Collect 15 coins | 2 enemies, lava traps, Lava Beast boss |
+| Final | Treasure Island | Open the Grand Treasure | Final reward sequence |
 
 ## How to Play
 
 1. Open `index.html` in a browser.
-2. Move the pirate using the keyboard.
-3. Collect all coins on the island.
-4. Avoid the crab enemy.
-5. Open the treasure chest after collecting enough coins.
-6. Win the game when the chest is opened.
+2. Move the pirate around the island.
+3. Collect all coins.
+4. Fight and defeat the island boss using Space.
+5. Answer the island clue question correctly.
+6. Complete the island and collect a Sea Map Fragment.
+7. Use the upgrade menu and World Map to continue.
+8. Collect 3 Sea Map Fragments to reveal Final Treasure Island.
+9. Open the Grand Treasure to finish the adventure.
 
 ## Controls
 
@@ -39,33 +60,81 @@ Collect coins → Avoid enemy → Open treasure chest → Win
 | Move Down | `S` or `Arrow Down` |
 | Move Left | `A` or `Arrow Left` |
 | Move Right | `D` or `Arrow Right` |
+| Attack Boss | `Space` |
+
+## Boss Fight Rules
+
+| Rule | Result |
+|---|---|
+| Player collects all coins | Island boss appears |
+| Player presses Space near boss | Boss loses 1 HP |
+| Player presses Space too far away | Status shows a move-closer message |
+| Boss touches player | Player loses 1 HP after damage cooldown |
+| Boss HP reaches 0 | Boss defeat effect plays, then route clue appears |
+
+## Progression Systems
+
+### Sea Map Fragments
+
+- Completing each main island gives 1 Sea Map Fragment.
+- 3 fragments unlock Final Treasure Island.
+- Final message appears after opening the Grand Treasure.
+
+### Crew
+
+| Crew Member | Unlock Rule | Effect |
+|---|---|---|
+| Navigator | Complete Coconut Island | Shows a hint for the next island |
+| Cook | Complete Mist Island | Restores 1 health after completing an island |
+
+### Ship Upgrades
+
+| Upgrade | Effect |
+|---|---|
+| Strong Sail | Increases player speed |
+| Reinforced Hull | Increases max health by 1 |
+| Treasure Radar | Shows a hint when only a few coins remain |
+
+### Mystery Fruits
+
+| Fruit | Effect |
+|---|---|
+| Wind Fruit | Temporarily increases player speed |
+| Magnet Fruit | Pulls nearby coins toward the player |
+| Shield Fruit | Blocks one enemy or trap hit |
 
 ## Win and Lose Rules
 
 | Rule | Result |
 |---|---|
-| Player collects all required coins and touches the chest | You Win |
-| Player touches the chest before collecting enough coins | Warning message is shown |
+| Player completes all 3 islands | Final Treasure Island unlocks |
+| Player opens the Grand Treasure | Adventure completed |
 | Player health reaches 0 | Game Over |
+| Player chooses a wrong route answer | Health decreases by 1 |
 
 ## Project Structure
 
 ```text
 tiny-pirate-quest/
-├── .github/
-│   └── workflows/
-├── .vs/
-├── index.html
-├── style.css
-├── script.js
-└── README.md
+|-- .github/
+|   `-- workflows/
+|-- tests/
+|   `-- gameLogic.test.js
+|-- index.html
+|-- style.css
+|-- script.js
+|-- gameLogic.js
+|-- package.json
+|-- package-lock.json
+`-- README.md
 ```
 
 ## Tech Stack
 
-- **HTML** — game screen structure
-- **CSS** — island style and visual design
-- **JavaScript** — game logic, movement, collision, score, health, and win/lose rules
+- HTML for game screen structure
+- CSS for island visuals, UI layout, and animations
+- JavaScript for gameplay, movement, collisions, progression, and UI updates
+- Node.js for lightweight unit tests
 
 ## How to Run Locally
 
@@ -83,39 +152,54 @@ index.html
 2. Right-click `index.html`.
 3. Select **Open with Live Server**.
 
+## Testing
+
+Run the unit tests:
+
+```bash
+npm test
+```
+
+Run the syntax check:
+
+```bash
+npm run check
+```
+
+## Manual Testing Checklist
+
+| Area | Expected Result |
+|---|---|
+| Page load | Game screen displays correctly |
+| Movement | Player moves using WASD or Arrow keys |
+| Boundary | Player cannot move outside the game area |
+| Player HP | HP label follows the player |
+| Coin collection | Coins disappear after collection |
+| Boss spawn | Boss appears after all coins are collected |
+| Boss HP | Boss HP label follows the boss |
+| Boss attack | Space damages boss only when close enough |
+| Boss defeat | Defeat animation plays and route clue appears |
+| Enemy damage | Health decreases with damage cooldown |
+| Lava damage | Health decreases and screen shakes |
+| Route question | Correct answer unlocks island completion |
+| Wrong route answer | Health decreases by 1 |
+| World Map | Next island unlocks after island completion |
+| Upgrades | Purchased upgrades apply immediately |
+| Crew | Navigator and Cook unlock after the correct islands |
+| Final island | Unlocks after 3 Sea Map Fragments |
+| Final treasure | Shows final reward message |
+
 ## Development Workflow
 
 This project follows a small-step vibe coding workflow:
 
 ```text
-Base screen → Movement → Coins → Enemy → Health → Chest → Restart → Polish → Test
+Base game -> Movement -> Coins -> Enemies -> Levels -> Routes -> Map -> Upgrades -> Bosses -> Effects -> Tests
 ```
 
-## Testing Checklist
+## Status
 
-| Area | Expected Result |
-|---|---|
-| Page load | Game screen displays correctly |
-| Movement | Player moves using WASD or arrow keys |
-| Boundary | Player cannot move outside the game area |
-| Coin collection | Coin disappears after collection |
-| Score | Score increases correctly |
-| Duplicate collection | Same coin cannot be collected twice |
-| Enemy | Crab enemy moves correctly |
-| Health | Health decreases when player touches enemy |
-| Damage cooldown | Health does not decrease too quickly |
-| Chest locked | Chest cannot be opened before collecting enough coins |
-| Win condition | Player wins after collecting enough coins and opening chest |
-| Game over | Game ends when health reaches 0 |
-
-## Roadmap
-
-- [ ] Add restart button
-- [ ] Add sound effects
-- [ ] Add more enemy types
-- [ ] Add multiple islands
-- [ ] Add timer or high score
-- [ ] Add power-ups such as dash, shield, or coin magnet
+Playable prototype with progression, boss fights, upgrades, crew, power-ups, final island, and unit tests.
 
 ## Contributors
 
@@ -124,8 +208,4 @@ Base screen → Movement → Coins → Enemy → Health → Chest → Restart �
 | Sherryonline | Project owner and creator |
 | Codex | AI coding assistant for vibe coding support |
 
-> Note: GitHub's automatic **Contributors** panel is based on commit authors. Codex is listed here as a project contributor because it was used as an AI coding assistant.
-
-## Status
-
-MVP in progress.
+> Note: GitHub's automatic Contributors panel is based on commit authors. Codex is listed here because it was used as an AI coding assistant.
