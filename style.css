@@ -321,6 +321,10 @@ h1 {
   animation: player-flash 0.32s linear 3;
 }
 
+#player.dashing {
+  animation: player-dash 0.18s ease-out;
+}
+
 .enemy {
   z-index: 4;
 }
@@ -334,7 +338,7 @@ h1 {
 }
 
 .boss.hit {
-  animation: boss-hit 0.25s linear;
+  animation: boss-hit 0.5s linear;
 }
 
 .boss.defeated {
@@ -732,6 +736,17 @@ button:hover {
   }
   50% {
     filter: drop-shadow(0 0 8px #ff2222) saturate(2);
+  }
+}
+
+@keyframes player-dash {
+  from {
+    transform: scale(1.15);
+    filter: drop-shadow(0 0 9px rgba(255, 255, 255, 0.9));
+  }
+  to {
+    transform: scale(1);
+    filter: none;
   }
 }
 

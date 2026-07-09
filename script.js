@@ -33,6 +33,12 @@ const gameHeight = 400;
 const spriteSize = 34;
 const basePlayerSpeed = 220;
 const baseMaxHealth = 3;
+const bossAttackRange = 80;
+const bossStunDuration = 0.5;
+const bossChaseDuration = 3;
+const bossRestDuration = 1;
+const dashDistance = 90;
+const dashCooldownDuration = 2;
 
 let player;
 let playerX;
@@ -60,6 +66,8 @@ let routeUnlocked = false;
 let bossActive = false;
 let bossEventStarted = false;
 let attackCooldown = 0;
+let dashCooldown = 0;
+let lastMoveDirection = { x: 1, y: 0 };
 let activePowerUp = null;
 let powerUpTimer = 0;
 let shieldCharges = 0;
@@ -207,11 +215,13 @@ function startLevel() {
   bossEventStarted = false;
   bossDefeatToken += 1;
   attackCooldown = 0;
+  dashCooldown = 0;
+  lastMoveDirection = { x: 1, y: 0 };
   activePowerUp = null;
   powerUpTimer = 0;
   shieldCharges = 0;
 
-  playerElement.classList.remove("damaged");
+  playerElement.classList.remove("damaged", "dashing");
   gameArea.classList.remove("shake");
   chestElement.classList.remove("open");
   chestElement.classList.add("hidden");
@@ -337,6 +347,9 @@ function startFinalTreasureIsland() {
   bossEventStarted = false;
   bossDefeatToken += 1;
   attackCooldown = 0;
+  dashCooldown = 0;
+  lastMoveDirection = { x: 1, y: 0 };
+  playerElement.classList.remove("damaged", "dashing");
   routePanel.classList.add("hidden");
   worldMap.classList.add("hidden");
   upgradeMenu.classList.add("hidden");
@@ -473,6 +486,10 @@ function movePlayer(deltaTime) {
     moveY *= Math.SQRT1_2;
   }
 
+  if (moveX !== 0 || moveY !== 0) {
+    lastMoveDirection = { x: moveX, y: moveY };
+  }
+
   playerX += moveX * getPlayerSpeed() * deltaTime;
   playerY += moveY * getPlayerSpeed() * deltaTime;
 
@@ -481,6 +498,33 @@ function movePlayer(deltaTime) {
 
   player.x = playerX;
   player.y = playerY;
+}
+
+function dashPlayer() {
+  if (gameOver || isRouteQuestionOpen() || isWorldMapOpen() || isUpgradeMenuOpen()) {
+    return;
+  }
+
+  if (dashCooldown > 0) {
+    updateHud(`Dash ready in ${Math.ceil(dashCooldown)}s.`);
+    return;
+  }
+
+  playerX = keepInside(playerX + lastMoveDirection.x * dashDistance, gameWidth - spriteSize);
+  playerY = keepInside(playerY + lastMoveDirection.y * dashDistance, gameHeight - spriteSize);
+  player.x = playerX;
+  player.y = playerY;
+  dashCooldown = dashCooldownDuration;
+  playDashEffect();
+  drawSprites();
+  updateHud("Dash!");
+}
+
+function playDashEffect() {
+  playerElement.classList.remove("dashing");
+  void playerElement.offsetWidth;
+  playerElement.classList.add("dashing");
+  setTimeout(() => playerElement.classList.remove("dashing"), 180);
 }
 
 function moveEnemies(deltaTime) {
@@ -569,6 +613,9 @@ function createBoss(settings) {
   boss = {
     ...settings,
     maxHp: settings.hp,
+    phase: "chase",
+    phaseTimer: bossChaseDuration,
+    stunTimer: 0,
     element
   };
 }
@@ -587,14 +634,56 @@ function updateBoss(deltaTime) {
     return;
   }
 
-  moveBoss(deltaTime);
+  updateBossTimers(deltaTime);
+
+  if (canBossMove()) {
+    moveBoss(deltaTime);
+  }
+
   checkBossCollision();
 
   if (gameOver) {
     return;
   }
 
-  statusElement.textContent = `${boss.name} HP: ${boss.hp}/${boss.maxHp}. Press Space to attack.`;
+  statusElement.textContent = getBossFightStatus();
+}
+
+function updateBossTimers(deltaTime) {
+  if (boss.stunTimer > 0) {
+    boss.stunTimer = Math.max(0, boss.stunTimer - deltaTime);
+    return;
+  }
+
+  boss.phaseTimer = Math.max(0, boss.phaseTimer - deltaTime);
+
+  if (boss.phaseTimer > 0) {
+    return;
+  }
+
+  if (boss.phase === "chase") {
+    boss.phase = "rest";
+    boss.phaseTimer = bossRestDuration;
+  } else {
+    boss.phase = "chase";
+    boss.phaseTimer = bossChaseDuration;
+  }
+}
+
+function canBossMove() {
+  return boss.stunTimer === 0 && boss.phase === "chase";
+}
+
+function getBossFightStatus() {
+  if (boss.stunTimer > 0) {
+    return `${boss.name} is stunned! Attack while you can.`;
+  }
+
+  if (boss.phase === "rest") {
+    return `${boss.name} is resting. Move in and attack!`;
+  }
+
+  return `${boss.name} HP: ${boss.hp}/${boss.maxHp}. Press Space to attack.`;
 }
 
 function moveBoss(deltaTime) {
@@ -623,7 +712,7 @@ function attackBoss() {
 
   const result = GameLogic.attackBoss(player, boss, {
     spriteSize,
-    range: 62,
+    range: bossAttackRange,
     damage: 1,
     cooldown: attackCooldown,
     hitCooldown: 0.6,
@@ -644,6 +733,7 @@ function attackBoss() {
   }
 
   boss.hp = result.bossHp;
+  boss.stunTimer = bossStunDuration;
   playBossHitEffect();
   showFloatingText("-1 HP", boss.x + 5, boss.y - 10, "damage");
   updateHud(`${boss.name} hit! Boss HP: ${boss.hp}/${boss.maxHp}`);
@@ -718,7 +808,7 @@ function playBossHitEffect() {
     if (boss && boss.element) {
       boss.element.classList.remove("hit");
     }
-  }, 260);
+  }, 520);
 }
 
 function showFloatingText(text, x, y, type) {
@@ -1211,6 +1301,7 @@ function gameLoop(currentTime) {
 
   if (!gameOver && !isRouteQuestionOpen() && !isWorldMapOpen() && !isUpgradeMenuOpen()) {
     attackCooldown = Math.max(0, attackCooldown - deltaTime);
+    dashCooldown = Math.max(0, dashCooldown - deltaTime);
     movePlayer(deltaTime);
     moveEnemies(deltaTime);
     updatePowerUp(deltaTime);
@@ -1224,6 +1315,14 @@ function gameLoop(currentTime) {
 
 document.addEventListener("keydown", (event) => {
   const key = event.key.toLowerCase();
+
+  if (event.key === "Shift") {
+    event.preventDefault();
+    if (!event.repeat) {
+      dashPlayer();
+    }
+    return;
+  }
 
   if (event.code === "Space") {
     event.preventDefault();
