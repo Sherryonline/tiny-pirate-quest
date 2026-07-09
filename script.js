@@ -16,6 +16,9 @@ const overlayRestartButton = document.getElementById("overlayRestartButton");
 const routePanel = document.getElementById("routePanel");
 const routeClue = document.getElementById("routeClue");
 const routeChoices = document.getElementById("routeChoices");
+const worldMap = document.getElementById("worldMap");
+const worldMapMessage = document.getElementById("worldMapMessage");
+const worldMapIslands = document.getElementById("worldMapIslands");
 
 const gameWidth = 600;
 const gameHeight = 400;
@@ -85,6 +88,13 @@ const levels = [
   }
 ];
 
+const worldMapRoute = [
+  { name: "Coconut Island", icon: "🥥" },
+  { name: "Mist Island", icon: "🌫️" },
+  { name: "Volcano Island", icon: "🌋" },
+  { name: "Treasure Island", icon: "🏝️" }
+];
+
 const coinPositions = [
   { x: 80, y: 70 },
   { x: 185, y: 45 },
@@ -130,6 +140,7 @@ function startLevel() {
   chestElement.classList.remove("open");
   chestElement.classList.add("hidden");
   routePanel.classList.add("hidden");
+  worldMap.classList.add("hidden");
   gameOverlay.classList.add("hidden");
   chestElement.style.left = "535px";
   chestElement.style.top = "335px";
@@ -413,18 +424,89 @@ function shakeGameArea() {
 
 function completeLevel() {
   mapFragments += 1;
+  gameOver = true;
+  updateHud(`Sea Map Fragment found on ${levels[currentLevelIndex].name}!`);
+  showWorldMap();
+}
 
-  if (mapFragments === 3) {
+function showWorldMap() {
+  const currentMapIndex = Math.min(mapFragments, worldMapRoute.length - 1);
+
+  worldMapMessage.textContent = mapFragments === 3
+    ? "All map fragments collected. The path to Treasure Island is revealed!"
+    : "A new route is unlocked. Choose the next island.";
+  worldMapIslands.innerHTML = "";
+
+  worldMapRoute.forEach((island, index) => {
+    const isCompleted = index < mapFragments && index < levels.length;
+    const isUnlocked = index <= mapFragments;
+    const isCurrent = index === currentMapIndex;
+    const card = document.createElement("div");
+    const status = getMapIslandStatus(index, isCompleted, isUnlocked, isCurrent);
+    const button = document.createElement("button");
+
+    card.className = `map-island ${isCompleted ? "completed" : ""} ${isCurrent ? "current" : ""} ${isUnlocked ? "" : "locked"}`;
+    card.innerHTML = `
+      <div class="map-icon">${island.icon}</div>
+      <div class="map-name">${island.name}</div>
+      <div class="map-status">${status}</div>
+    `;
+
+    button.type = "button";
+    button.textContent = getMapButtonText(index, isCompleted, isUnlocked, isCurrent);
+    button.disabled = !isCurrent || !isUnlocked;
+    button.addEventListener("click", () => selectWorldMapIsland(index));
+    card.appendChild(button);
+    worldMapIslands.appendChild(card);
+  });
+
+  worldMap.classList.remove("hidden");
+}
+
+function getMapIslandStatus(index, isCompleted, isUnlocked, isCurrent) {
+  if (isCompleted) {
+    return "Completed";
+  }
+  if (!isUnlocked) {
+    return "Locked";
+  }
+  if (index === 3) {
+    return "Unlocked";
+  }
+  return isCurrent ? "Current route" : "Unlocked";
+}
+
+function getMapButtonText(index, isCompleted, isUnlocked, isCurrent) {
+  if (isCompleted) {
+    return "Completed";
+  }
+  if (!isUnlocked) {
+    return "Locked";
+  }
+  if (!isCurrent) {
+    return "Wait";
+  }
+  return index === 3 ? "Reveal Treasure Island" : "Sail Here";
+}
+
+function selectWorldMapIsland(index) {
+  if (index > mapFragments) {
+    return;
+  }
+
+  worldMap.classList.add("hidden");
+
+  if (index === 3) {
     overlayAction = "restart";
     endGame(
       "Final Treasure Island Unlocked",
       "All map fragments collected. The path to Treasure Island is revealed!"
     );
-  } else {
-    overlayAction = "next";
-    endGame("You Win", `Sea Map Fragment found on ${levels[currentLevelIndex].name}!`);
-    overlayRestartButton.textContent = `Start Level ${currentLevelIndex + 2}`;
+    return;
   }
+
+  currentLevelIndex = index;
+  startLevel();
 }
 
 function isTouching(a, b) {
@@ -460,11 +542,15 @@ function isRouteQuestionOpen() {
   return !routePanel.classList.contains("hidden");
 }
 
+function isWorldMapOpen() {
+  return !worldMap.classList.contains("hidden");
+}
+
 function gameLoop(currentTime) {
   const deltaTime = lastFrameTime ? (currentTime - lastFrameTime) / 1000 : 0;
   lastFrameTime = currentTime;
 
-  if (!gameOver && !isRouteQuestionOpen()) {
+  if (!gameOver && !isRouteQuestionOpen() && !isWorldMapOpen()) {
     movePlayer(deltaTime);
     moveEnemies(deltaTime);
     checkCollisions(deltaTime);
