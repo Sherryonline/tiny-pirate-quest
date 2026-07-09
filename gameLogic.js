@@ -112,6 +112,48 @@
     return Math.min(health + 1, maxHealth);
   }
 
+  function attackBoss(player, boss, options) {
+    if (options.cooldown > 0) {
+      return {
+        hit: false,
+        bossHp: boss.hp,
+        cooldown: options.cooldown,
+        defeated: false,
+        reason: "cooldown"
+      };
+    }
+
+    const playerCenter = {
+      x: player.x + options.spriteSize / 2,
+      y: player.y + options.spriteSize / 2
+    };
+    const bossCenter = {
+      x: boss.x + options.spriteSize / 2,
+      y: boss.y + options.spriteSize / 2
+    };
+    const distance = Math.hypot(playerCenter.x - bossCenter.x, playerCenter.y - bossCenter.y);
+
+    if (distance > options.range) {
+      return {
+        hit: false,
+        bossHp: boss.hp,
+        cooldown: options.missCooldown,
+        defeated: false,
+        reason: "out-of-range"
+      };
+    }
+
+    const nextHp = Math.max(0, boss.hp - options.damage);
+
+    return {
+      hit: true,
+      bossHp: nextHp,
+      cooldown: options.hitCooldown,
+      defeated: nextHp === 0,
+      reason: "hit"
+    };
+  }
+
   return {
     isTouching,
     keepInside,
@@ -122,6 +164,7 @@
     canSelectIsland,
     getUnlockedIslandIndex,
     getNextIslandName,
-    applyCookHeal
+    applyCookHeal,
+    attackBoss
   };
 });

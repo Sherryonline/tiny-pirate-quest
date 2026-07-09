@@ -10,6 +10,7 @@ const healthElement = document.getElementById("health");
 const fragmentsElement = document.getElementById("fragments");
 const crewElement = document.getElementById("crew");
 const activeFruitElement = document.getElementById("activeFruit");
+const bossHpElement = document.getElementById("bossHp");
 const statusElement = document.getElementById("status");
 const restartButton = document.getElementById("restartButton");
 const gameOverlay = document.getElementById("gameOverlay");
@@ -57,8 +58,8 @@ let overlayAction = "restart";
 let routeQuestionShown = false;
 let routeUnlocked = false;
 let bossActive = false;
-let bossTimer = 0;
 let bossEventStarted = false;
+let attackCooldown = 0;
 let activePowerUp = null;
 let powerUpTimer = 0;
 let shieldCharges = 0;
@@ -74,7 +75,7 @@ const levelConfig = {
       question: "Which island sign points to the next sea route?",
       choices: ["Clouds", "Lava", "Fog"],
       correctChoice: 0,
-      boss: { name: "Giant Crab", icon: "🦀", x: 280, y: 120, speed: 115 },
+      boss: { name: "Giant Crab", icon: "🦀", x: 280, y: 120, speed: 115, hp: 3 },
       enemies: [{ x: 280, y: 190, minX: 120, maxX: 445, speed: 120 }],
       lavaTraps: []
     },
@@ -86,7 +87,7 @@ const levelConfig = {
       question: "What should the pirate follow through Mist Island?",
       choices: ["Coconut trees", "Fog", "Volcano smoke"],
       correctChoice: 1,
-      boss: { name: "Fog Ghost", icon: "👻", x: 300, y: 90, speed: 130 },
+      boss: { name: "Fog Ghost", icon: "👻", x: 300, y: 90, speed: 130, hp: 5 },
       enemies: [
         { x: 160, y: 120, minX: 80, maxX: 300, speed: 135 },
         { x: 430, y: 255, minX: 310, maxX: 520, speed: 150 }
@@ -101,7 +102,7 @@ const levelConfig = {
       question: "What marks the final treasure route?",
       choices: ["Ocean waves", "Coconut leaves", "Volcano smoke"],
       correctChoice: 2,
-      boss: { name: "Lava Beast", icon: "🔥", x: 300, y: 90, speed: 145 },
+      boss: { name: "Lava Beast", icon: "🔥", x: 300, y: 90, speed: 145, hp: 7 },
       enemies: [
         { x: 145, y: 110, minX: 60, maxX: 285, speed: 150 },
         { x: 420, y: 265, minX: 300, maxX: 525, speed: 165 }
@@ -202,8 +203,8 @@ function startLevel() {
   routeQuestionShown = false;
   routeUnlocked = false;
   bossActive = false;
-  bossTimer = 0;
   bossEventStarted = false;
+  attackCooldown = 0;
   activePowerUp = null;
   powerUpTimer = 0;
   shieldCharges = 0;
@@ -332,6 +333,7 @@ function startFinalTreasureIsland() {
   enemyHitCooldown = 0;
   bossActive = false;
   bossEventStarted = false;
+  attackCooldown = 0;
   routePanel.classList.add("hidden");
   worldMap.classList.add("hidden");
   upgradeMenu.classList.add("hidden");
@@ -388,6 +390,7 @@ function updateHud(message) {
   fragmentsElement.textContent = mapFragments;
   crewElement.textContent = crew.length > 0 ? crew.join(", ") : "None";
   activeFruitElement.textContent = getActiveFruitText();
+  bossHpElement.textContent = bossActive && boss ? `${boss.hp}/${boss.maxHp}` : "None";
   statusElement.textContent = message;
 }
 
@@ -531,9 +534,8 @@ function startBossEvent(level) {
 
   bossEventStarted = true;
   bossActive = true;
-  bossTimer = 20;
   createBoss(level.boss);
-  updateHud(`${level.boss.name} appeared! Avoid the boss for 20 seconds.`);
+  updateHud(`${level.boss.name} appeared! Press Space near the boss to attack.`);
 }
 
 function createBoss(settings) {
@@ -546,6 +548,7 @@ function createBoss(settings) {
 
   boss = {
     ...settings,
+    maxHp: settings.hp,
     element
   };
 }
@@ -563,7 +566,6 @@ function updateBoss(deltaTime) {
     return;
   }
 
-  bossTimer = Math.max(0, bossTimer - deltaTime);
   moveBoss(deltaTime);
   checkBossCollision();
 
@@ -571,11 +573,7 @@ function updateBoss(deltaTime) {
     return;
   }
 
-  if (bossTimer <= 0) {
-    finishBossEvent();
-  } else {
-    statusElement.textContent = `Avoid ${boss.name}: ${Math.ceil(bossTimer)}s left`;
-  }
+  statusElement.textContent = `${boss.name} HP: ${boss.hp}/${boss.maxHp}. Press Space to attack.`;
 }
 
 function moveBoss(deltaTime) {
@@ -596,12 +594,45 @@ function checkBossCollision() {
   }
 }
 
+function attackBoss() {
+  if (!bossActive || !boss || gameOver) {
+    return;
+  }
+
+  const result = GameLogic.attackBoss(player, boss, {
+    spriteSize,
+    range: 62,
+    damage: 1,
+    cooldown: attackCooldown,
+    hitCooldown: 0.6,
+    missCooldown: 0.2
+  });
+
+  attackCooldown = result.cooldown;
+
+  if (result.reason === "cooldown") {
+    return;
+  }
+
+  if (!result.hit) {
+    updateHud("Too far from the boss to attack!");
+    return;
+  }
+
+  boss.hp = result.bossHp;
+  updateHud(`${boss.name} hit! Boss HP: ${boss.hp}/${boss.maxHp}`);
+
+  if (result.defeated) {
+    finishBossEvent();
+  }
+}
+
 function finishBossEvent() {
   const level = levels[currentLevelIndex];
 
   bossActive = false;
   removeBoss();
-  updateHud(`${level.boss.name} retreated! Read the island clue.`);
+  updateHud(`${level.boss.name} defeated! Read the island clue.`);
   showRouteQuestion(level);
 }
 
@@ -1078,6 +1109,7 @@ function gameLoop(currentTime) {
   lastFrameTime = currentTime;
 
   if (!gameOver && !isRouteQuestionOpen() && !isWorldMapOpen() && !isUpgradeMenuOpen()) {
+    attackCooldown = Math.max(0, attackCooldown - deltaTime);
     movePlayer(deltaTime);
     moveEnemies(deltaTime);
     updatePowerUp(deltaTime);
@@ -1091,6 +1123,12 @@ function gameLoop(currentTime) {
 
 document.addEventListener("keydown", (event) => {
   const key = event.key.toLowerCase();
+
+  if (event.code === "Space") {
+    event.preventDefault();
+    attackBoss();
+    return;
+  }
 
   if (["arrowup", "arrowdown", "arrowleft", "arrowright", "w", "a", "s", "d"].includes(key)) {
     event.preventDefault();

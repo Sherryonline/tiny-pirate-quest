@@ -93,3 +93,39 @@ test("cook heals up to max health", () => {
   assert.equal(GameLogic.applyCookHeal(4, 4, true), 4);
   assert.equal(GameLogic.applyCookHeal(2, 4, false), 2);
 });
+
+test("boss attack requires range and cooldown", () => {
+  const options = {
+    spriteSize: 34,
+    range: 60,
+    damage: 1,
+    cooldown: 0,
+    hitCooldown: 0.6,
+    missCooldown: 0.2
+  };
+
+  assert.deepEqual(GameLogic.attackBoss({ x: 10, y: 10 }, { x: 35, y: 20, hp: 2 }, options), {
+    hit: true,
+    bossHp: 1,
+    cooldown: 0.6,
+    defeated: false,
+    reason: "hit"
+  });
+
+  assert.deepEqual(GameLogic.attackBoss({ x: 10, y: 10 }, { x: 35, y: 20, hp: 1 }, options), {
+    hit: true,
+    bossHp: 0,
+    cooldown: 0.6,
+    defeated: true,
+    reason: "hit"
+  });
+
+  assert.equal(
+    GameLogic.attackBoss({ x: 10, y: 10 }, { x: 200, y: 200, hp: 2 }, options).reason,
+    "out-of-range"
+  );
+  assert.equal(
+    GameLogic.attackBoss({ x: 10, y: 10 }, { x: 35, y: 20, hp: 2 }, { ...options, cooldown: 0.3 }).reason,
+    "cooldown"
+  );
+});
