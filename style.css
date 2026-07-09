@@ -68,7 +68,11 @@ h1 {
     radial-gradient(circle at 20% 72%, #83d36c 0 10%, transparent 11%),
     radial-gradient(circle at 50% 50%, #fff2a8 0 5%, transparent 6%),
     linear-gradient(#f6da85, #eec36a);
-  border-color: #8b5a2b;
+  border-color: #55b7d8;
+  box-shadow:
+    0 0 0 5px rgba(255, 255, 255, 0.65) inset,
+    0 0 0 10px rgba(54, 159, 197, 0.5) inset,
+    0 8px 0 rgba(0, 0, 0, 0.15);
 }
 
 .level-coconut::before {
@@ -104,6 +108,30 @@ h1 {
   background:
     linear-gradient(120deg, transparent 18%, rgba(255, 92, 35, 0.35) 20%, transparent 25%),
     linear-gradient(30deg, transparent 62%, rgba(255, 177, 52, 0.25) 66%, transparent 72%);
+}
+
+.level-volcano .volcano-effect::before,
+.level-volcano .volcano-effect::after {
+  content: "";
+  position: absolute;
+  height: 12px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #ffce45, #ff6224, #8b1e16);
+  filter: drop-shadow(0 0 8px rgba(255, 91, 36, 0.8));
+}
+
+.level-volcano .volcano-effect::before {
+  left: 48px;
+  bottom: 78px;
+  width: 150px;
+  transform: rotate(-12deg);
+}
+
+.level-volcano .volcano-effect::after {
+  right: 74px;
+  bottom: 132px;
+  width: 120px;
+  transform: rotate(18deg);
 }
 
 .island-effects,
