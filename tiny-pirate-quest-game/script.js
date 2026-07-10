@@ -66,6 +66,7 @@ const bossChaseDuration = 3;
 const gunCooldownDuration = 0.9;
 const bulletSpeed = 420;
 const ghostBulletSpeed = 250;
+const enemyProjectileSpeed = 230;
 const dashDistance = 90;
 const dashCooldownDuration = 2;
 const chestPosition = { x: 626, y: 398 };
@@ -82,6 +83,7 @@ let grandTreasure;
 let coins;
 let bullets = [];
 let ghostBullets = [];
+let enemyProjectiles = [];
 let npc = null;
 let sideQuestItems = [];
 let lavaBursts = [];
@@ -170,6 +172,62 @@ const bossBehaviorConfigs = {
   }
 };
 
+const enemyBehaviorConfigs = {
+  crabPatrol: {
+    name: "Crab Patrol",
+    icon: "\uD83E\uDD80",
+    hp: 1,
+    speed: 95,
+    damageMessage: "Ouch! The crab pinched you.",
+    defeatMessage: "Enemy defeated! +1 coin",
+    rewardCoins: 1,
+    detectionRange: 0,
+    behavior: "patrol"
+  },
+  fogSpirit: {
+    name: "Fog Spirit",
+    icon: "\uD83D\uDC7B",
+    hp: 2,
+    speed: 110,
+    chaseSpeed: 142,
+    damageMessage: "A Fog Spirit chilled you!",
+    defeatMessage: "Enemy defeated! +1 coin",
+    rewardCoins: 1,
+    detectionRange: 130,
+    chaseDuration: 2,
+    cooldownDuration: 1.2,
+    behavior: "chase"
+  },
+  fireImp: {
+    name: "Fire Imp",
+    icon: "\uD83D\uDD25",
+    hp: 2,
+    speed: 120,
+    damageMessage: "A Fire Imp burned you!",
+    defeatMessage: "Enemy defeated! +1 coin",
+    rewardCoins: 1,
+    detectionRange: 180,
+    warningDuration: 0.65,
+    attackCooldown: 2.6,
+    projectileLifetime: 2.5,
+    behavior: "projectile"
+  },
+  ghostMinion: {
+    name: "Ghost Minion",
+    icon: "\uD83D\uDC7B",
+    hp: 2,
+    speed: 82,
+    chaseSpeed: 118,
+    damageMessage: "A Ghost Minion clawed you!",
+    defeatMessage: "Enemy defeated! +1 coin",
+    rewardCoins: 1,
+    detectionRange: 160,
+    chaseDuration: 2.4,
+    cooldownDuration: 0.8,
+    behavior: "chase"
+  }
+};
+
 const levelConfig = {
   levels: [
     {
@@ -181,7 +239,9 @@ const levelConfig = {
       choices: ["Clouds", "Lava", "Fog"],
       correctChoice: 0,
       boss: { name: "Giant Crab", type: "crab", icon: "\uD83E\uDD80", x: 560, y: 118, speed: 95 },
-      enemies: [{ x: 318, y: 260, minX: 210, maxX: 515, speed: 120 }],
+      enemies: [
+        { type: "crabPatrol", x: 318, y: 260, minX: 210, maxX: 515, speed: 95 }
+      ],
       coinPositions: [
         { x: 95, y: 382 },
         { x: 150, y: 350 },
@@ -206,8 +266,8 @@ const levelConfig = {
       correctChoice: 1,
       boss: { name: "Fog Ghost", type: "ghost", icon: "\uD83D\uDC7B", x: 565, y: 95, speed: 105 },
       enemies: [
-        { x: 190, y: 176, minX: 92, maxX: 360, speed: 135 },
-        { x: 512, y: 342, minX: 405, maxX: 658, speed: 150 }
+        { type: "fogSpirit", x: 190, y: 176, minX: 92, maxX: 360, speed: 118 },
+        { type: "fogSpirit", x: 512, y: 342, minX: 405, maxX: 658, speed: 128 }
       ],
       coinPositions: [
         { x: 104, y: 365 },
@@ -235,8 +295,9 @@ const levelConfig = {
       correctChoice: 2,
       boss: { name: "Lava Beast", type: "lava", icon: "\uD83D\uDD25", x: 548, y: 92, speed: 120 },
       enemies: [
-        { x: 184, y: 170, minX: 92, maxX: 322, speed: 150 },
-        { x: 500, y: 326, minX: 405, maxX: 642, speed: 165 }
+        { type: "fireImp", x: 184, y: 170, minX: 92, maxX: 322, speed: 120 },
+        { type: "fireImp", x: 500, y: 326, minX: 405, maxX: 642, speed: 132 },
+        { type: "fireImp", x: 372, y: 250, minX: 295, maxX: 505, speed: 112 }
       ],
       coinPositions: [
         { x: 92, y: 382 },
@@ -474,13 +535,14 @@ function startLevel() {
   removeGrandTreasure();
   clearBullets();
   clearGhostBullets();
+  clearEnemyProjectiles();
   clearLavaBursts();
   chestElement.style.left = `${chestPosition.x}px`;
   chestElement.style.top = `${chestPosition.y}px`;
 
   applyLevelStyle(level);
   createCoins(level);
-  createEnemies(level.enemies);
+  createCombatEnemies(level.enemies);
   createLavaTraps(level.lavaTraps);
   createMysteryFruit();
   createSideQuest(level);
@@ -580,6 +642,44 @@ function removeMysteryFruit() {
   mysteryFruit = null;
 }
 
+function createCombatEnemies(enemySettings) {
+  document.querySelectorAll(".extra-enemy").forEach((enemy) => enemy.remove());
+  enemyElement.className = "sprite enemy";
+  enemyElement.style.display = enemySettings.length > 0 ? "grid" : "none";
+
+  enemies = enemySettings.map((settings, index) => {
+    const behavior = enemyBehaviorConfigs[settings.type || "crabPatrol"] || enemyBehaviorConfigs.crabPatrol;
+    const element = index === 0 ? enemyElement : document.createElement("div");
+
+    element.className = index === 0 ? "sprite enemy" : "sprite enemy extra-enemy";
+    element.classList.add(`enemy-${settings.type || "crabPatrol"}`);
+    element.textContent = settings.icon || behavior.icon;
+
+    if (index > 0) {
+      gameArea.appendChild(element);
+    }
+
+    return {
+      ...behavior,
+      ...settings,
+      type: settings.type || "crabPatrol",
+      maxHp: settings.hp || behavior.hp,
+      hp: settings.hp || behavior.hp,
+      baseSpeed: settings.speed || behavior.speed,
+      direction: 1,
+      state: "patrol",
+      stunTimer: 0,
+      chaseTimer: 0,
+      cooldownTimer: 0,
+      warningTimer: 0,
+      projectileVector: null,
+      rewarded: false,
+      defeated: false,
+      element
+    };
+  });
+}
+
 function createSideQuest(level) {
   clearSideQuestObjects();
 
@@ -654,22 +754,33 @@ function startFinalTreasureIsland() {
   removeMysteryFruit();
   removeGrandTreasure();
   clearBullets();
+  clearGhostBullets();
+  clearEnemyProjectiles();
   clearLavaBursts();
   clearLevelObjects();
   gameArea.classList.remove("level-coconut", "level-mist", "level-volcano");
   gameArea.classList.add("level-treasure");
   createGrandTreasure();
+  createCombatEnemies(getFinalIslandEnemies());
   startBossEvent({ boss: ghostPirateBoss });
   updateHud("Defeat the Ghost Pirate to unlock the Grand Treasure!");
   drawSprites();
 }
 
 function clearLevelObjects() {
-  document.querySelectorAll(".coin, .lava, .extra-enemy").forEach((element) => element.remove());
+  document.querySelectorAll(".coin, .lava, .extra-enemy, .enemy-projectile").forEach((element) => element.remove());
   coins = [];
   lavaTraps = [];
   enemies = [];
+  clearEnemyProjectiles();
   clearSideQuestObjects();
+}
+
+function getFinalIslandEnemies() {
+  return [
+    { type: "ghostMinion", x: 185, y: 140, minX: 120, maxX: 330, speed: 82 },
+    { type: "ghostMinion", x: 438, y: 330, minX: 360, maxX: 610, speed: 92 }
+  ];
 }
 
 function createGrandTreasure() {
@@ -1187,22 +1298,135 @@ function getSpriteCenter(sprite) {
 
 function moveEnemies(deltaTime) {
   enemies.forEach((enemy) => {
-    enemy.x += enemy.direction * enemy.speed * deltaTime;
-
-    if (enemy.x <= enemy.minX || enemy.x >= enemy.maxX) {
-      enemy.direction *= -1;
+    if (enemy.defeated) {
+      return;
     }
+
+    if (enemy.stunTimer > 0) {
+      enemy.stunTimer = Math.max(0, enemy.stunTimer - deltaTime);
+      enemy.state = "stunned";
+      return;
+    }
+
+    enemy.cooldownTimer = Math.max(0, enemy.cooldownTimer - deltaTime);
+
+    if (enemy.warningTimer > 0) {
+      enemy.warningTimer = Math.max(0, enemy.warningTimer - deltaTime);
+
+      if (enemy.warningTimer === 0 && enemy.projectileVector) {
+        createEnemyProjectile(enemy, enemy.projectileVector);
+        enemy.projectileVector = null;
+        enemy.state = "cooldown";
+        enemy.cooldownTimer = enemy.attackCooldown;
+        enemy.element.classList.remove("warning");
+      }
+
+      return;
+    }
+
+    if (enemy.behavior === "projectile") {
+      updateProjectileEnemy(enemy, deltaTime);
+      return;
+    }
+
+    if (enemy.behavior === "chase") {
+      updateChasingEnemy(enemy, deltaTime);
+      return;
+    }
+
+    patrolEnemy(enemy, deltaTime);
   });
+}
+
+function patrolEnemy(enemy, deltaTime) {
+  enemy.state = "patrol";
+  enemy.x += enemy.direction * enemy.baseSpeed * deltaTime;
+
+  if (enemy.x <= enemy.minX || enemy.x >= enemy.maxX) {
+    enemy.direction *= -1;
+    enemy.x = keepInside(enemy.x, gameWidth - spriteSize);
+  }
+}
+
+function updateChasingEnemy(enemy, deltaTime) {
+  const distance = getDistance(enemy, player);
+
+  if (enemy.state === "chase") {
+    enemy.chaseTimer = Math.max(0, enemy.chaseTimer - deltaTime);
+    moveEnemyTowardPlayer(enemy, enemy.chaseSpeed, deltaTime);
+
+    if (enemy.chaseTimer === 0) {
+      enemy.state = "cooldown";
+      enemy.cooldownTimer = enemy.cooldownDuration;
+      enemy.element.classList.remove("chasing", "warning");
+    }
+
+    return;
+  }
+
+  if (enemy.cooldownTimer === 0 && distance <= enemy.detectionRange) {
+    enemy.state = "chase";
+    enemy.chaseTimer = enemy.chaseDuration;
+    enemy.element.classList.add("chasing", "warning");
+    return;
+  }
+
+  enemy.element.classList.remove("chasing", "warning");
+  patrolEnemy(enemy, deltaTime);
+}
+
+function updateProjectileEnemy(enemy, deltaTime) {
+  const distance = getDistance(enemy, player);
+
+  if (enemy.cooldownTimer === 0 && distance <= enemy.detectionRange) {
+    const dx = player.x - enemy.x;
+    const dy = player.y - enemy.y;
+    const vectorDistance = Math.hypot(dx, dy) || 1;
+
+    enemy.state = "attack";
+    enemy.warningTimer = enemy.warningDuration;
+    enemy.projectileVector = { x: dx / vectorDistance, y: dy / vectorDistance };
+    enemy.element.classList.add("warning");
+    showToast("Fireball incoming!");
+    return;
+  }
+
+  patrolEnemy(enemy, deltaTime);
+}
+
+function moveEnemyTowardPlayer(enemy, speed, deltaTime) {
+  const dx = player.x - enemy.x;
+  const dy = player.y - enemy.y;
+  const distance = Math.hypot(dx, dy) || 1;
+
+  enemy.x = keepInside(enemy.x + (dx / distance) * speed * deltaTime, gameWidth - spriteSize);
+  enemy.y = keepInside(enemy.y + (dy / distance) * speed * deltaTime, gameHeight - spriteSize);
+}
+
+function getDistance(a, b) {
+  return Math.hypot(a.x - b.x, a.y - b.y);
 }
 
 function keepInside(value, max) {
   return GameLogic.keepInside(value, max);
 }
 
+function rectanglesOverlap(a, b) {
+  return (
+    a.x < b.x + b.width &&
+    a.x + a.width > b.x &&
+    a.y < b.y + b.height &&
+    a.y + a.height > b.y
+  );
+}
+
 function checkCollisions(deltaTime) {
   if (enemyHitCooldown > 0) {
     enemyHitCooldown = Math.max(0, enemyHitCooldown - deltaTime);
   }
+
+  checkRegularEnemyDamage();
+  checkEnemyProjectileDamage();
 
   if (finalIslandActive) {
     if (grandTreasure && ghostPirateDefeated && isTouching(player, grandTreasure)) {
@@ -1241,14 +1465,6 @@ function checkCollisions(deltaTime) {
     advanceSideQuest();
   });
 
-  const touchedEnemy = enemies.find((enemy) => isTouching(player, enemy));
-  if (enemyHitCooldown === 0 && touchedEnemy) {
-    takeDamage("Ouch! The crab pinched you.", "The crab wins this round.", {
-      knockbackFrom: touchedEnemy,
-      flash: true
-    });
-  }
-
   if (enemyHitCooldown === 0 && lavaTraps.some((lava) => isTouching(player, lava))) {
     takeDamage("Hot lava! Careful where you step.", "The lava ended your quest.", {
       shake: true
@@ -1273,6 +1489,34 @@ function checkCollisions(deltaTime) {
   if (routeUnlocked && isTouching(player, chestPosition)) {
     completeLevel();
   }
+}
+
+function checkRegularEnemyDamage() {
+  const touchedEnemy = enemies.find((enemy) => !enemy.defeated && isTouching(player, enemy));
+
+  if (enemyHitCooldown > 0 || !touchedEnemy) {
+    return;
+  }
+
+  takeDamage(touchedEnemy.damageMessage, `${touchedEnemy.name} ended your quest.`, {
+    knockbackFrom: touchedEnemy,
+    flash: true,
+    playerDamageText: true
+  });
+}
+
+function checkEnemyProjectileDamage() {
+  const projectile = enemyProjectiles.find((item) => !item.done && isTouching(player, item));
+
+  if (enemyHitCooldown > 0 || !projectile) {
+    return;
+  }
+
+  projectile.done = true;
+  takeDamage("Fireball hit! Keep moving.", "A fireball ended your quest.", {
+    shake: true,
+    playerDamageText: true
+  });
 }
 
 function advanceSideQuest() {
@@ -1794,6 +2038,53 @@ function clearGhostBullets() {
   ghostBullets = [];
 }
 
+function createEnemyProjectile(enemy, vector) {
+  const element = document.createElement("div");
+  element.className = "enemy-projectile";
+  element.textContent = "•";
+  gameArea.appendChild(element);
+
+  enemyProjectiles.push({
+    x: enemy.x + spriteSize / 2 - 5,
+    y: enemy.y + spriteSize / 2 - 5,
+    dx: vector.x,
+    dy: vector.y,
+    lifetime: enemy.projectileLifetime,
+    sourceName: enemy.name,
+    element
+  });
+}
+
+function updateEnemyProjectiles(deltaTime) {
+  enemyProjectiles.forEach((projectile) => {
+    projectile.x += projectile.dx * enemyProjectileSpeed * deltaTime;
+    projectile.y += projectile.dy * enemyProjectileSpeed * deltaTime;
+    projectile.lifetime = Math.max(0, projectile.lifetime - deltaTime);
+    projectile.element.style.left = `${projectile.x}px`;
+    projectile.element.style.top = `${projectile.y}px`;
+
+    if (
+      projectile.lifetime === 0 ||
+      projectile.x < -18 ||
+      projectile.x > gameWidth + 18 ||
+      projectile.y < -18 ||
+      projectile.y > gameHeight + 18
+    ) {
+      projectile.done = true;
+    }
+  });
+
+  enemyProjectiles
+    .filter((projectile) => projectile.done)
+    .forEach((projectile) => projectile.element.remove());
+  enemyProjectiles = enemyProjectiles.filter((projectile) => !projectile.done);
+}
+
+function clearEnemyProjectiles() {
+  enemyProjectiles.forEach((projectile) => projectile.element.remove());
+  enemyProjectiles = [];
+}
+
 function getBossFightStatus() {
   if (boss.stunTimer > 0) {
     return `${boss.name} is stunned! Attack while you can.`;
@@ -2008,8 +2299,142 @@ function showSlashEffect(attackArea, direction) {
   setTimeout(() => slash.remove(), 260);
 }
 
+function performMeleeAttack() {
+  if (attackRegularEnemy()) {
+    return;
+  }
+
+  attackBoss();
+}
+
+function attackRegularEnemy() {
+  if (introActive || gameOver || attackCooldown > 0) {
+    return false;
+  }
+
+  const target = getTargetEnemy();
+
+  if (!target) {
+    return false;
+  }
+
+  const attackDirection = lastDirection;
+  const meleeRange = purchasedUpgrades.includes("sharpSword") ? bossAttackRange + 22 : bossAttackRange;
+  const meleeThickness = purchasedUpgrades.includes("sharpSword") ? bossAttackThickness + 16 : bossAttackThickness;
+  const meleeDamage = purchasedUpgrades.includes("sharpSword") ? 2 : 1;
+  const attackArea = GameLogic.getAttackArea(player, attackDirection, {
+    spriteSize,
+    range: meleeRange,
+    thickness: meleeThickness
+  });
+  const enemyArea = {
+    x: target.x,
+    y: target.y,
+    width: spriteSize,
+    height: spriteSize
+  };
+
+  if (!rectanglesOverlap(attackArea, enemyArea)) {
+    return false;
+  }
+
+  attackCooldown = 0.45;
+  target.hp = Math.max(0, target.hp - meleeDamage);
+  target.stunTimer = 0.35;
+  target.state = "stunned";
+  target.element.classList.remove("hit");
+  void target.element.offsetWidth;
+  target.element.classList.add("hit");
+  showSlashEffect(attackArea, attackDirection);
+  showFloatingText(`-${meleeDamage} HP`, target.x + 2, target.y - 10, "damage");
+  showToast("Enemy hit!");
+
+  setTimeout(() => {
+    if (target.element) {
+      target.element.classList.remove("hit");
+    }
+  }, 360);
+
+  if (target.hp === 0) {
+    defeatEnemy(target);
+  }
+
+  return true;
+}
+
+function getTargetEnemy() {
+  const attackDirection = lastDirection;
+  const meleeRange = purchasedUpgrades.includes("sharpSword") ? bossAttackRange + 22 : bossAttackRange;
+  const meleeThickness = purchasedUpgrades.includes("sharpSword") ? bossAttackThickness + 16 : bossAttackThickness;
+  const attackArea = GameLogic.getAttackArea(player, attackDirection, {
+    spriteSize,
+    range: meleeRange,
+    thickness: meleeThickness
+  });
+
+  return enemies
+    .filter((enemy) => !enemy.defeated)
+    .filter((enemy) => rectanglesOverlap(attackArea, {
+      x: enemy.x,
+      y: enemy.y,
+      width: spriteSize,
+      height: spriteSize
+    }))
+    .sort((a, b) => getDistance(a, player) - getDistance(b, player))[0] || null;
+}
+
+function getDirectionToEnemy(enemy) {
+  const dx = enemy.x - player.x;
+  const dy = enemy.y - player.y;
+
+  if (Math.abs(dx) > Math.abs(dy)) {
+    return dx < 0 ? "left" : "right";
+  }
+
+  return dy < 0 ? "up" : "down";
+}
+
+function defeatEnemy(enemy) {
+  enemy.defeated = true;
+  enemy.element.classList.add("defeated");
+  enemy.element.classList.remove("warning", "chasing");
+  showFloatingText("Defeated!", enemy.x - 4, enemy.y - 14, "defeat");
+
+  if (!enemy.rewarded) {
+    enemy.rewarded = true;
+    totalCoins += enemy.rewardCoins;
+    showToast(enemy.defeatMessage);
+    updateHud(`${enemy.name} defeated! +${enemy.rewardCoins} coin`);
+  }
+
+  setTimeout(() => {
+    if (enemy.element && enemy.element !== enemyElement) {
+      enemy.element.remove();
+    }
+
+    enemies = enemies.filter((item) => item !== enemy);
+
+    if (enemy.element === enemyElement && enemies.length > 0) {
+      const replacement = enemies[0];
+      enemyElement.className = replacement.element.className;
+      enemyElement.textContent = replacement.element.textContent;
+      enemyElement.style.left = `${replacement.x}px`;
+      enemyElement.style.top = `${replacement.y}px`;
+      replacement.element.remove();
+      replacement.element = enemyElement;
+      enemyElement.style.display = "grid";
+    } else if (enemy.element === enemyElement) {
+      enemyElement.style.display = "none";
+    }
+  }, 420);
+}
+
 function shootPirateGun() {
-  if (introActive || gameOver || !bossActive || !boss || !purchasedUpgrades.includes("pirateGun")) {
+  if (introActive || gameOver || !purchasedUpgrades.includes("pirateGun")) {
+    return;
+  }
+
+  if (!bossActive && enemies.every((enemy) => enemy.defeated)) {
     return;
   }
 
@@ -2018,7 +2443,7 @@ function shootPirateGun() {
     return;
   }
 
-  const direction = getDirectionToBoss();
+  const direction = getGunDirection();
   const vector = getDirectionVector(direction);
   const element = document.createElement("div");
   element.className = "bullet-effect";
@@ -2037,6 +2462,18 @@ function shootPirateGun() {
   showToast("Pirate Gun fired!");
 }
 
+function getGunDirection() {
+  if (bossActive && boss) {
+    return getDirectionToBoss();
+  }
+
+  const target = enemies
+    .filter((enemy) => !enemy.defeated)
+    .sort((a, b) => getDistance(a, player) - getDistance(b, player))[0];
+
+  return target ? getDirectionToEnemy(target) : lastDirection;
+}
+
 function updateBullets(deltaTime) {
   bullets.forEach((bullet) => {
     bullet.x += bullet.dx * bulletSpeed * deltaTime;
@@ -2050,6 +2487,13 @@ function updateBullets(deltaTime) {
     if (bossActive && boss && !isBossInvulnerable() && isTouching({ x: bullet.x, y: bullet.y }, boss)) {
       damageBoss(1, "Gun shot!");
       bullet.done = true;
+      return;
+    }
+
+    const enemy = enemies.find((item) => !item.defeated && isTouching({ x: bullet.x, y: bullet.y }, item));
+    if (enemy) {
+      damageEnemy(enemy, 1, "Gun shot!");
+      bullet.done = true;
     }
   });
 
@@ -2062,6 +2506,26 @@ function updateBullets(deltaTime) {
 function clearBullets() {
   bullets.forEach((bullet) => bullet.element.remove());
   bullets = [];
+}
+
+function damageEnemy(enemy, damage, message) {
+  enemy.hp = Math.max(0, enemy.hp - damage);
+  enemy.stunTimer = 0.35;
+  enemy.element.classList.remove("hit");
+  void enemy.element.offsetWidth;
+  enemy.element.classList.add("hit");
+  showFloatingText(`-${damage} HP`, enemy.x + 2, enemy.y - 10, "damage");
+  showToast(message || "Enemy hit!");
+
+  setTimeout(() => {
+    if (enemy.element) {
+      enemy.element.classList.remove("hit");
+    }
+  }, 360);
+
+  if (enemy.hp === 0) {
+    defeatEnemy(enemy);
+  }
 }
 
 function damageBoss(damage, message) {
@@ -2658,6 +3122,7 @@ function gameLoop(currentTime) {
     moveEnemies(deltaTime);
     updatePowerUp(deltaTime);
     updateBullets(deltaTime);
+    updateEnemyProjectiles(deltaTime);
     checkCollisions(deltaTime);
     updateBoss(deltaTime);
     drawSprites();
@@ -2686,7 +3151,7 @@ document.addEventListener("keydown", (event) => {
 
   if (event.code === "Space") {
     event.preventDefault();
-    attackBoss();
+    performMeleeAttack();
     return;
   }
 

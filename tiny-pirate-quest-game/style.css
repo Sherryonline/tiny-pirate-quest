@@ -631,6 +631,43 @@ h1 {
   z-index: 4;
 }
 
+.enemy.hit {
+  animation: boss-hit 0.36s linear;
+}
+
+.enemy.warning {
+  animation: warning-pulse 0.22s linear infinite alternate;
+  filter: drop-shadow(0 0 9px rgba(255, 230, 90, 0.9)) saturate(1.45);
+}
+
+.enemy.chasing {
+  filter: drop-shadow(0 0 8px rgba(160, 220, 255, 0.85));
+}
+
+.enemy-fogSpirit {
+  opacity: 0.9;
+}
+
+.enemy.defeated {
+  animation: boss-defeat 0.42s ease-out forwards;
+  pointer-events: none;
+}
+
+.enemy-projectile {
+  position: absolute;
+  z-index: 5;
+  display: grid;
+  width: 14px;
+  height: 14px;
+  place-items: center;
+  pointer-events: none;
+  color: #fff3c4;
+  font-size: 18px;
+  line-height: 1;
+  text-shadow: 0 0 8px rgba(255, 76, 29, 0.95);
+  filter: drop-shadow(0 0 6px rgba(255, 76, 29, 0.9));
+}
+
 .boss {
   z-index: 4;
   width: 42px;
