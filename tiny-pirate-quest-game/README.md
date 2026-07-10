@@ -32,7 +32,7 @@ You are a tiny pirate searching for the lost treasure of the Tiny Sea. Explore i
 - Beginner control guide on first load
 - Quest Panel with island, objective, coin progress, fragments, and next hint
 - Quest Panel support for side quest, side progress, wallet, and next action
-- Battle Panel during boss fights with boss name, HP bar, phase, invulnerability, enraged, and warning attack hints
+- Battle Panel during boss fights with boss name, HP bar, phase, faded/enraged/lava/ghost-rage states, and attack hints
 - Heart health GUI in the HUD
 - Three main islands with different rules and visuals
 - Final Treasure Island unlock
@@ -121,9 +121,9 @@ Boss phases shown in the panel:
 - Resting
 - Stunned
 - Enraged
-- Invulnerable
-- Reforming
-- Warning Attack
+- Faded
+- Charging Lava
+- Lava Burst
 - Ghost Rage
 
 ### Heart Health
@@ -134,7 +134,7 @@ The existing HP label still follows the player inside the game area.
 
 ### Toast Messages
 
-Short toast messages appear for important actions, including coin collection, boss hits, boss defeat, route answers, damage, not enough coins, and upgrade purchases.
+Short toast messages appear for important actions, including coin collection, boss hits, boss phase changes, lava warnings, boss defeat, route answers, damage, not enough coins, and upgrade purchases.
 
 ### Shop Wallet
 
@@ -159,22 +159,22 @@ Boss attacks use a directional hitbox:
 | Left / Right | 100px wide x 70px high |
 | Up / Down | 70px wide x 100px high |
 
-Bosses follow a chase/rest rhythm, with added phase behavior:
+Bosses follow a chase/rest rhythm, with boss-specific timing and phase behavior:
 
 ```text
-Chase for 3 seconds -> Rest for 1 second -> Repeat
+Chase -> Rest -> Special attack windows -> Repeat
 ```
 
-When hit, bosses are stunned for 0.8 seconds. Bosses do not damage the player while stunned, resting, faded, or reforming.
+When hit, bosses are stunned briefly. Later bosses recover faster, so their attack windows are shorter. Bosses do not damage the player while stunned, resting, faded, or reforming.
 
-| Boss | HP | Sprint 2 Pattern |
-|---|---:|---|
-| Giant Crab | 5 | Enraged at 2 HP or less with slightly faster chase |
-| Fog Ghost | 7 | Fades for 1 second, ignores player attacks while invulnerable, then shows a reforming warning |
-| Lava Beast | 9 | Marks lava burst warning zones before active damage |
-| Ghost Pirate | 12 | Final boss; phase 2 at 6 HP or less adds warned dash attacks |
+| Boss | Difficulty | HP | Stun | Rest | Pattern |
+|---|---|---:|---:|---:|---|
+| Giant Crab | Easy | 5 | 0.8s | 1.1s | Enraged at 2 HP or less, moves faster, rests less, and uses warned horizontal charge |
+| Fog Ghost | Medium | 7 | 0.6s | 0.9s | Fades for 1 second, ignores attacks, then reforms near the player with a warning |
+| Lava Beast | Hard | 9 | 0.5s | 0.7s | Marks lava warning zones before active burst damage; low HP can add extra burst pressure |
+| Ghost Pirate | Final | 12 | 0.4s | 0.6s | Ghost Rage at 6 HP or less adds warned dash slashes and dodgeable ghost bullets |
 
-Strong attacks use visible warning zones before they can damage the player. Dash remains useful for escaping Giant Crab chase pressure, Lava Beast burst zones, and Ghost Pirate dash warnings.
+Strong attacks use visible warning zones before they can damage the player. Dash remains useful for escaping Giant Crab charge lines, Lava Beast burst zones, and Ghost Pirate dash warnings.
 
 ### Final Ghost Pirate
 
@@ -182,7 +182,7 @@ Final Treasure Island now starts with the Grand Treasure locked. The Ghost Pirat
 
 - Phase 1 uses the chase/rest boss rhythm.
 - Phase 2 starts at 6 HP or less and shows `Ghost Rage` in the Battle Panel.
-- Ghost Rage adds a dash attack warning before the boss lunges.
+- Ghost Rage adds a dash attack warning before the boss lunges and ghost bullets that travel toward the player's last known position.
 - After defeat, the game shows: `The Ghost Pirate vanished. The Grand Treasure is unlocked!`
 - The Grand Treasure can only be opened after the Ghost Pirate is defeated.
 
@@ -322,10 +322,12 @@ npm run check
 | Boss attack | Space damages boss when boss overlaps the directional attack area |
 | Boss lock-on | Space aims toward nearby boss within lock-on range |
 | Boss rest/stun | Boss does not damage player while resting or stunned |
-| Giant Crab enraged | At 2 HP or less, Battle Panel shows Enraged and chase is faster |
-| Fog Ghost fade | Faded ghost ignores attacks and shows reforming warning before attackable |
-| Lava Beast burst | Warning zone appears before active lava burst damage |
+| Giant Crab enraged | At 2 HP or less, Battle Panel shows Enraged, chase is faster, and rest is shorter |
+| Giant Crab charge | Horizontal warning line appears before the charge and can be dodged with Shift |
+| Fog Ghost fade | Faded ghost ignores attacks, reappears near the player, and shows reforming warning before attackable |
+| Lava Beast burst | Yellow/orange warning zone appears before red active lava burst damage |
 | Ghost Pirate | Appears on Final Treasure Island before treasure opens |
+| Ghost Pirate rage | At 6 HP or less, Battle Panel shows Ghost Rage with dash slash and ghost bullets |
 | Grand Treasure lock | Cannot open until Ghost Pirate is defeated |
 | Sharp Sword | Melee hit is larger and deals more damage |
 | Pirate Gun | `J` fires cooldown bullets that can damage bosses |

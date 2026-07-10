@@ -11,6 +11,7 @@ const fragmentsElement = document.getElementById("fragments");
 const crewElement = document.getElementById("crew");
 const activeFruitElement = document.getElementById("activeFruit");
 const heartHealthElement = document.getElementById("heartHealth");
+const questPanel = document.querySelector(".quest-panel");
 const questIslandElement = document.getElementById("questIsland");
 const questObjectiveElement = document.getElementById("questObjective");
 const questCoinsElement = document.getElementById("questCoins");
@@ -700,7 +701,7 @@ function updateHud(message) {
   scoreElement.textContent = score;
   coinGoalElement.textContent = finalIslandActive ? 0 : level.coinCount;
   totalCoinsElement.textContent = totalCoins;
-  fragmentsElement.textContent = mapFragments;
+  fragmentsElement.textContent = `${mapFragments}/3`;
   crewElement.textContent = crew.length > 0 ? crew.join(", ") : "None";
   activeFruitElement.textContent = getActiveFruitText();
   statusElement.textContent = message;
@@ -720,16 +721,25 @@ function updateQuestPanel() {
   const level = levels[currentLevelIndex];
   const coinGoal = finalIslandActive ? 0 : level.coinCount;
 
+  questPanel.classList.toggle("is-suppressed", shouldSuppressQuestPanel());
   questIslandElement.textContent = finalIslandActive ? "Final Treasure Island" : level.name;
   questObjectiveElement.textContent = getQuestObjective();
   questCoinsElement.textContent = score;
   questCoinGoalElement.textContent = coinGoal;
   questFragmentsElement.textContent = `${mapFragments}/3`;
-  questSideObjectiveElement.textContent = getSideQuestObjectiveText();
+  questSideObjectiveElement.textContent = getSideQuestText();
   questSideProgressElement.textContent = getSideQuestProgressText();
   questWalletElement.textContent = `${totalCoins} coins`;
   questNextActionElement.textContent = getNextActionText();
   questHintElement.textContent = getQuestHint();
+}
+
+function shouldSuppressQuestPanel() {
+  return introActive ||
+    isUpgradeMenuOpen() ||
+    isWorldMapOpen() ||
+    isRouteQuestionOpen() ||
+    !gameOverlay.classList.contains("hidden");
 }
 
 function getQuestObjective() {
@@ -746,11 +756,11 @@ function getQuestObjective() {
   }
 
   if (isRouteQuestionOpen()) {
-    return "Solve the route clue";
+    return "Solve route clue";
   }
 
   if (bossActive) {
-    return "Boss appeared! Defeat the boss";
+    return "Defeat the boss";
   }
 
   if (score < levels[currentLevelIndex].coinCount) {
@@ -856,6 +866,21 @@ function getSideQuestObjectiveText() {
   }
 
   return state.rewarded ? "Complete" : config.objective;
+}
+
+function getSideQuestText() {
+  const config = getCurrentSideQuestConfig();
+  const state = getCurrentSideQuestState();
+
+  if (!config || !state) {
+    return "None";
+  }
+
+  if (state.rewarded) {
+    return `Complete — ${config.reward}`;
+  }
+
+  return `${config.objective} — ${state.progress}/${config.target}`;
 }
 
 function getSideQuestProgressText() {
@@ -2597,6 +2622,7 @@ function endGame(title, message) {
     overlayRestartButton.textContent = "Restart Game";
   }
   gameOverlay.classList.remove("hidden");
+  updateQuestPanel();
 }
 
 function handleOverlayButton() {
