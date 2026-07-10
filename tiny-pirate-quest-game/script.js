@@ -31,9 +31,16 @@ const battleHint = document.getElementById("battleHint");
 const toastContainer = document.getElementById("toastContainer");
 const playerHpLabel = document.getElementById("playerHpLabel");
 const bossHpLabel = document.getElementById("bossHpLabel");
+const npcDialogue = document.getElementById("npcDialogue");
+const npcDialogueFace = document.getElementById("npcDialogueFace");
+const npcDialogueName = document.getElementById("npcDialogueName");
+const npcDialogueText = document.getElementById("npcDialogueText");
+const npcDialogueActions = document.getElementById("npcDialogueActions");
 const statusElement = document.getElementById("status");
 const restartButton = document.getElementById("restartButton");
-const helpElement = document.querySelector(".help");
+const helpElement = document.querySelector(".bottom-controls .help");
+const testSoundButton = document.getElementById("testSoundButton");
+const muteButton = document.getElementById("muteButton");
 const gameOverlay = document.getElementById("gameOverlay");
 const overlayTitle = document.getElementById("overlayTitle");
 const overlayMessage = document.getElementById("overlayMessage");
@@ -76,6 +83,8 @@ const dashCooldownDuration = 2;
 const chestPosition = { x: 626, y: 398 };
 const playerStartPosition = { x: 46, y: 400 };
 const saveKey = "tinyPirateQuestSave";
+const audioPreferenceKey = "tinyPirateQuestAudioMuted";
+const audioVolumePreferenceKey = "tinyPirateQuestAudioVolume";
 
 let player;
 let playerX;
@@ -120,6 +129,461 @@ let ghostPirateDefeated = false;
 let bossDefeatToken = 0;
 let introActive = true;
 let defeatedEnemyIndexes = [];
+let audioContext = null;
+let masterGain = null;
+let sfxGain = null;
+let musicGain = null;
+let musicInterval = null;
+let currentMusicMode = "off";
+let musicStep = 0;
+let audioUnlocked = false;
+let audioMuted = loadAudioMutedPreference();
+let audioVolume = loadAudioVolumePreference();
+const lastSoundTimes = {};
+
+function loadAudioMutedPreference() {
+  try {
+    return localStorage.getItem(audioPreferenceKey) === "true";
+  } catch (error) {
+    return false;
+  }
+}
+
+function saveAudioMutedPreference() {
+  try {
+    localStorage.setItem(audioPreferenceKey, String(audioMuted));
+  } catch (error) {
+    // Audio preference is best-effort.
+  }
+}
+
+function loadAudioVolumePreference() {
+  try {
+    const savedVolume = Number(localStorage.getItem(audioVolumePreferenceKey));
+    return Number.isFinite(savedVolume) ? keepInside(savedVolume, 1) : 0.45;
+  } catch (error) {
+    return 0.45;
+  }
+}
+
+function saveAudioVolumePreference() {
+  try {
+    localStorage.setItem(audioVolumePreferenceKey, String(audioVolume));
+  } catch (error) {
+    // Audio preference is best-effort.
+  }
+}
+
+function initAudioContext() {
+  if (audioContext) {
+    return audioContext;
+  }
+
+  const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+
+  if (!AudioContextClass) {
+    console.warn("Tiny Pirate Quest audio is not supported in this browser.");
+    return null;
+  }
+
+  try {
+    console.log("Creating AudioContext after user gesture");
+    audioContext = new AudioContextClass();
+    masterGain = audioContext.createGain();
+    sfxGain = audioContext.createGain();
+    musicGain = audioContext.createGain();
+    masterGain.gain.value = audioMuted ? 0 : audioVolume;
+    sfxGain.gain.value = 0.75;
+    musicGain.gain.value = 0.16;
+    sfxGain.connect(masterGain);
+    musicGain.connect(masterGain);
+    masterGain.connect(audioContext.destination);
+    return audioContext;
+  } catch (error) {
+    console.warn("Tiny Pirate Quest audio could not start.", error);
+    return null;
+  }
+}
+
+function initAudio() {
+  return initAudioContext();
+}
+
+async function unlockAudio() {
+  console.log("Audio unlock requested");
+  const context = initAudioContext();
+
+  if (!context) {
+    return false;
+  }
+
+  console.log(`AudioContext state before resume: ${context.state}`);
+
+  try {
+    if (context.state === "suspended") {
+      await context.resume();
+    }
+
+    console.log(`AudioContext state after resume: ${context.state}`);
+
+    if (context.state === "running") {
+      audioUnlocked = true;
+      console.log("Audio unlocked");
+      console.log(`AudioContext state: ${context.state}`);
+      updateMusicForGameState();
+      return true;
+    }
+
+    audioUnlocked = false;
+    console.warn(`AudioContext state: ${context.state}`);
+    return false;
+  } catch (error) {
+    audioUnlocked = false;
+    console.warn(`Audio play failed: ${error}`);
+    return false;
+  }
+}
+
+function setVolume(value) {
+  const nextVolume = Number(value);
+
+  if (!Number.isFinite(nextVolume)) {
+    return;
+  }
+
+  audioVolume = keepInside(nextVolume, 1);
+  saveAudioVolumePreference();
+
+  if (masterGain && audioContext) {
+    masterGain.gain.setTargetAtTime(audioMuted ? 0 : audioVolume, audioContext.currentTime, 0.02);
+  }
+}
+
+function setAudioMuted(nextMuted) {
+  audioMuted = nextMuted;
+  saveAudioMutedPreference();
+  syncMuteButton();
+  console.log(audioMuted ? "Audio muted" : "Audio unmuted");
+
+  if (masterGain) {
+    masterGain.gain.setTargetAtTime(audioMuted ? 0 : audioVolume, audioContext.currentTime, 0.02);
+  }
+
+  if (audioMuted) {
+    stopMusicLoop();
+    return;
+  }
+
+  AudioManager.unlockAudio().then(() => updateMusicForGameState());
+}
+
+function toggleMute() {
+  setAudioMuted(!audioMuted);
+
+  if (!audioMuted) {
+    AudioManager.playSound("button");
+  }
+}
+
+function syncMuteButton() {
+  if (!muteButton) {
+    return;
+  }
+
+  muteButton.textContent = audioMuted ? "🔇 Muted" : "🔊 Sound On";
+  muteButton.setAttribute("aria-pressed", String(audioMuted));
+  muteButton.classList.toggle("is-muted", audioMuted);
+}
+
+function playTone(frequency, duration, type = "sine", volume = 0.18, toFrequency = null) {
+  if (audioMuted || !audioUnlocked) {
+    return false;
+  }
+
+  const options = typeof type === "object" ? type : { type, volume, toFrequency };
+
+  if (!options.type) {
+    options.type = "sine";
+  }
+
+  const context = audioContext;
+
+  if (!context || !sfxGain) {
+    return false;
+  }
+
+  try {
+    const oscillator = context.createOscillator();
+    const gain = context.createGain();
+    const now = context.currentTime;
+    const volume = options.volume || 0.18;
+
+    oscillator.type = options.type || "sine";
+    oscillator.frequency.setValueAtTime(frequency, now);
+
+    if (options.toFrequency) {
+      oscillator.frequency.exponentialRampToValueAtTime(Math.max(20, options.toFrequency), now + duration);
+    }
+
+    gain.gain.setValueAtTime(0.0001, now);
+    gain.gain.exponentialRampToValueAtTime(volume, now + 0.015);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+    oscillator.connect(gain);
+    gain.connect(sfxGain);
+    oscillator.start(now);
+    oscillator.stop(now + duration + 0.03);
+    return true;
+  } catch (error) {
+    console.warn(`Audio play failed: ${error}`);
+    return false;
+  }
+}
+
+function playNoise(duration, options = {}) {
+  if (audioMuted || !audioUnlocked) {
+    return;
+  }
+
+  const context = audioContext;
+
+  if (!context || !sfxGain) {
+    return;
+  }
+
+  try {
+    const sampleRate = context.sampleRate;
+    const buffer = context.createBuffer(1, sampleRate * duration, sampleRate);
+    const data = buffer.getChannelData(0);
+
+    for (let index = 0; index < data.length; index += 1) {
+      data[index] = (Math.random() * 2 - 1) * (1 - index / data.length);
+    }
+
+    const noise = context.createBufferSource();
+    const gain = context.createGain();
+    const now = context.currentTime;
+
+    noise.buffer = buffer;
+    gain.gain.setValueAtTime(options.volume || 0.08, now);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+    noise.connect(gain);
+    gain.connect(sfxGain);
+    noise.start(now);
+  } catch (error) {
+    console.warn(`Audio play failed: ${error}`);
+  }
+}
+
+function playSound(name) {
+  if (audioMuted) {
+    console.log("Audio muted");
+    return false;
+  }
+
+  if (!audioUnlocked) {
+    console.warn("Tiny Pirate Quest audio is waiting for player interaction.");
+    return false;
+  }
+
+  const now = performance.now();
+  const minimumGap = name === "bossWarning" ? 450 : 65;
+
+  if (lastSoundTimes[name] && now - lastSoundTimes[name] < minimumGap) {
+    return false;
+  }
+
+  lastSoundTimes[name] = now;
+  console.log(`Playing sound: ${name}`);
+
+  if (name === "coin") {
+    playTone(880, 0.08, "sine", 0.14, 1320);
+    playTone(1320, 0.09, "sine", 0.1);
+  } else if (name === "hurt") {
+    playTone(220, 0.22, "sawtooth", 0.12, 110);
+  } else if (name === "dash" || name === "sword") {
+    playNoise(0.12, { volume: 0.06 });
+    playTone(420, 0.09, "triangle", 0.08, 760);
+  } else if (name === "slash") {
+    playNoise(0.08, { volume: 0.06 });
+    playTone(520, 0.08, "triangle", 0.08, 300);
+  } else if (name === "gun") {
+    playNoise(0.1, { volume: 0.09 });
+    playTone(130, 0.08, "square", 0.08, 80);
+  } else if (name === "enemyDefeated") {
+    playTone(520, 0.08, "sine", 0.1);
+    setTimeout(() => playTone(780, 0.12, "sine", 0.1), 70);
+  } else if (name === "bossWarning") {
+    playTone(170, 0.12, "triangle", 0.1);
+    setTimeout(() => playTone(130, 0.14, "triangle", 0.1), 130);
+  } else if (name === "bossHit") {
+    playTone(300, 0.08, "square", 0.1, 190);
+  } else if (name === "bossDefeated") {
+    [392, 523, 659, 784].forEach((frequency, index) => {
+      setTimeout(() => playTone(frequency, 0.16, "sine", 0.11), index * 95);
+    });
+  } else if (name === "button") {
+    playTone(520, 0.05, "sine", 0.07);
+  } else if (name === "purchase") {
+    playTone(660, 0.09, "sine", 0.1);
+    setTimeout(() => playTone(990, 0.13, "sine", 0.1), 90);
+  } else if (name === "routeCorrect") {
+    playTone(740, 0.09, "sine", 0.1);
+    setTimeout(() => playTone(1046, 0.13, "sine", 0.1), 90);
+  } else if (name === "routeWrong") {
+    playTone(260, 0.12, "sawtooth", 0.1, 160);
+  }
+
+  return true;
+}
+
+async function testSound() {
+  if (audioMuted) {
+    console.log("Audio muted");
+    showToast("Sound is muted.");
+    return false;
+  }
+
+  const unlocked = await unlockAudio();
+
+  if (!unlocked) {
+    showToast("Audio blocked by browser. Click Test Sound or Start Adventure.");
+    return false;
+  }
+
+  if (!audioContext || audioContext.state !== "running") {
+    showToast("Audio blocked. Click Test Sound again.");
+    return false;
+  }
+
+  console.log("Playing test sound");
+  const didPlay = playTone(660, 0.16, "sine", 0.28);
+  setTimeout(() => playTone(880, 0.16, "sine", 0.28), 120);
+  setTimeout(() => playTone(1100, 0.2, "sine", 0.28), 240);
+
+  if (didPlay) {
+    showToast("Sound works!");
+    return true;
+  }
+
+  showToast("Audio blocked. Click Test Sound again.");
+  return false;
+}
+
+function stopMusicLoop() {
+  if (musicInterval) {
+    clearInterval(musicInterval);
+    musicInterval = null;
+  }
+}
+
+function stopMusic() {
+  setMusicMode("off");
+}
+
+function playMusic(name) {
+  setMusicMode(name);
+}
+
+function setMusicMode(mode) {
+  if (currentMusicMode === mode && musicInterval) {
+    return;
+  }
+
+  currentMusicMode = mode;
+  musicStep = 0;
+  stopMusicLoop();
+
+  if (mode === "off" || audioMuted || !audioUnlocked) {
+    return;
+  }
+
+  try {
+    musicInterval = setInterval(playMusicStep, mode === "boss" ? 360 : 440);
+    playMusicStep();
+  } catch (error) {
+    console.warn("Tiny Pirate Quest music failed to start.", error);
+  }
+}
+
+function playMusicStep() {
+  if (audioMuted || !audioUnlocked || currentMusicMode === "off") {
+    return;
+  }
+
+  const context = audioContext;
+
+  if (!context || !musicGain) {
+    return;
+  }
+
+  const patterns = {
+    island: [523, 659, 784, 659, 587, 659, 523, 440],
+    boss: [196, 220, 196, 165, 247, 220, 196, 147],
+    victory: [523, 659, 784, 1046, 784, 659, 880, 1046]
+  };
+  const pattern = patterns[currentMusicMode] || patterns.island;
+  const frequency = pattern[musicStep % pattern.length];
+  const now = context.currentTime;
+  try {
+    const oscillator = context.createOscillator();
+    const gain = context.createGain();
+
+    oscillator.type = currentMusicMode === "boss" ? "triangle" : "sine";
+    oscillator.frequency.setValueAtTime(frequency, now);
+    gain.gain.setValueAtTime(0.0001, now);
+    gain.gain.exponentialRampToValueAtTime(currentMusicMode === "boss" ? 0.08 : 0.06, now + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.2);
+    oscillator.connect(gain);
+    gain.connect(musicGain);
+    oscillator.start(now);
+    oscillator.stop(now + 0.24);
+    musicStep += 1;
+  } catch (error) {
+    console.warn("Tiny Pirate Quest music note failed.", error);
+  }
+}
+
+function updateMusicForGameState() {
+  if (audioMuted || !audioUnlocked) {
+    return;
+  }
+
+  if (introActive || isUpgradeMenuOpen() || isWorldMapOpen() || isRouteQuestionOpen()) {
+    setMusicMode("off");
+    return;
+  }
+
+  if (!gameOverlay.classList.contains("hidden")) {
+    setMusicMode(overlayTitle.textContent === "Grand Treasure Found" ? "victory" : "off");
+    return;
+  }
+
+  setMusicMode(bossActive ? "boss" : "island");
+}
+
+const AudioManager = {
+  get audioContext() {
+    return audioContext;
+  },
+  get isUnlocked() {
+    return audioUnlocked;
+  },
+  get isMuted() {
+    return audioMuted;
+  },
+  get masterVolume() {
+    return audioVolume;
+  },
+  initAudio,
+  unlockAudio,
+  playTone,
+  playSound,
+  playMusic,
+  stopMusic,
+  toggleMute,
+  setVolume,
+  testSound
+};
 
 const bossBehaviorConfigs = {
   crab: {
@@ -759,6 +1223,7 @@ function startLevel(options = {}) {
   chestElement.classList.remove("open");
   chestElement.classList.add("hidden");
   routePanel.classList.add("hidden");
+  closeNpcDialogue();
   worldMap.classList.add("hidden");
   upgradeMenu.classList.add("hidden");
   gameOverlay.classList.add("hidden");
@@ -984,6 +1449,7 @@ function startFinalTreasureIsland(options = {}) {
   routePanel.classList.add("hidden");
   worldMap.classList.add("hidden");
   upgradeMenu.classList.add("hidden");
+  closeNpcDialogue();
   gameOverlay.classList.add("hidden");
   sailingOverlay.classList.add("hidden");
   chestElement.classList.add("hidden");
@@ -1060,6 +1526,7 @@ function updateHud(message) {
   updateHeartHealth();
   updateQuestPanel();
   updateBattlePanel();
+  updateMusicForGameState();
 }
 
 function updateHeartHealth() {
@@ -1078,8 +1545,8 @@ function updateControlGuide() {
   }
 
   helpElement.textContent = purchasedUpgrades.includes("pirateGun")
-    ? "Move: WASD/Arrows · Sword: Space · Shoot: Left Click · Dash: Shift · Talk: E"
-    : "Move: WASD/Arrows · Sword: Space · Dash: Shift · Talk: E · Buy Pirate Gun to shoot";
+    ? "Move: WASD/Arrows | Sword: Space | Shoot: Left Click | Dash: Shift | Talk: E"
+    : "Move: WASD/Arrows | Sword: Space | Dash: Shift | Talk: E | Buy Pirate Gun to shoot | Sound starts after Start";
 }
 
 function updateQuestPanel() {
@@ -1515,6 +1982,7 @@ function dashPlayer() {
   player.x = playerX;
   player.y = playerY;
   dashCooldown = dashCooldownDuration;
+  AudioManager.playSound("dash");
   playDashEffect();
   drawSprites();
   updateHud("Dash!");
@@ -1654,6 +2122,7 @@ function updateProjectileEnemy(enemy, deltaTime) {
     enemy.projectileVector = { x: dx / vectorDistance, y: dy / vectorDistance };
     enemy.element.classList.add("warning");
     showToast("Fireball incoming!");
+    AudioManager.playSound("bossWarning");
     return;
   }
 
@@ -1713,6 +2182,7 @@ function checkCollisions(deltaTime) {
     if (!coin.collected && isTouching(player, coin)) {
       coin.collected = true;
       score += 1;
+      AudioManager.playSound("coin");
       showToast("Coin collected!");
       saveGame();
       if (score === level.coinCount) {
@@ -1808,18 +2278,89 @@ function interactWithNpc() {
   }
 
   if (state.rewarded) {
-    showToast(`${config.npcName}: Thanks again!`);
+    showNpcDialogue(config, state, {
+      expression: "😎",
+      message: "Thanks again, matey! The Tiny Sea is safer with you around.",
+      actions: [
+        { label: "Close", style: "secondary", onClick: closeNpcDialogue }
+      ]
+    });
     updateHud(`${config.npcName} already gave your reward.`);
     return;
   }
 
   if (state.progress < config.target) {
-    showToast(`${config.npcName}: ${config.objective}.`);
+    const hasStarted = state.progress > 0;
+    showNpcDialogue(config, state, {
+      expression: hasStarted ? "🥺" : "😊",
+      message: hasStarted
+        ? `${config.objective}. You have ${state.progress}/${config.target}.`
+        : `Can you help me? ${config.objective}, please!`,
+      actions: [
+        { label: hasStarted ? "Continue" : "Accept Quest", onClick: closeNpcDialogue },
+        { label: "Close", style: "secondary", onClick: closeNpcDialogue }
+      ]
+    });
     updateHud(`${config.npcName} wants ${config.objective.toLowerCase()}. Progress: ${state.progress}/${config.target}.`);
     return;
   }
 
-  grantSideQuestReward(config, state);
+  showNpcDialogue(config, state, {
+    expression: "🎉",
+    message: `You did it! Claim your reward: ${config.reward}.`,
+    actions: [
+      {
+        label: "Continue",
+        onClick: () => {
+          closeNpcDialogue();
+          grantSideQuestReward(config, state);
+        }
+      }
+    ]
+  });
+}
+
+function showNpcDialogue(config, state, options) {
+  npcDialogueFace.textContent = options.expression;
+  npcDialogueName.textContent = config.npcName;
+  npcDialogueText.textContent = options.message;
+  npcDialogueActions.innerHTML = "";
+
+  options.actions.forEach((action) => {
+    const button = document.createElement("button");
+
+    button.type = "button";
+    button.textContent = action.label;
+    if (action.style === "secondary") {
+      button.classList.add("secondary");
+    }
+    button.addEventListener("click", action.onClick);
+    npcDialogueActions.appendChild(button);
+  });
+
+  positionNpcDialogue();
+  npcDialogue.classList.remove("hidden");
+  resetMovementKeys();
+}
+
+function positionNpcDialogue() {
+  if (!npc) {
+    return;
+  }
+
+  const left = keepInside(npc.x - 22, gameWidth - 250);
+  const top = keepInside(npc.y - 124, gameHeight - 120);
+
+  npcDialogue.style.left = `${left}px`;
+  npcDialogue.style.top = `${top}px`;
+}
+
+function closeNpcDialogue() {
+  npcDialogue.classList.add("hidden");
+}
+
+function isNpcDialogueOpen() {
+  return !npcDialogue.classList.contains("hidden");
 }
 
 function grantSideQuestReward(config, state) {
@@ -1857,6 +2398,7 @@ function startBossEvent(level) {
   bossActive = true;
   createBoss(level.boss);
   showToast("Boss appeared!");
+  AudioManager.playSound("bossWarning");
   updateHud(`${level.boss.name} appeared! Press Space near the boss to attack.`);
   saveGame();
 }
@@ -1948,6 +2490,7 @@ function updateBossTimers(deltaTime) {
       boss.element.classList.add("reforming");
       showReformWarning();
       showToast("Fog Ghost is reforming!");
+      AudioManager.playSound("bossWarning");
     }
 
     return;
@@ -2111,6 +2654,7 @@ function updateCrabCharge(deltaTime) {
   boss.crabChargeWarningTimer = boss.chargeWarning;
   boss.crabChargeCooldown = boss.hp <= 2 ? boss.chargeCooldown * 0.78 : boss.chargeCooldown;
   boss.element.classList.add("dash-warning");
+  AudioManager.playSound("bossWarning");
   showCrabChargeWarning();
 }
 
@@ -2144,6 +2688,7 @@ function updateLavaBeastBurst(deltaTime) {
 
   boss.lavaBurstCooldown = boss.hp <= 4 ? boss.lavaBurstEnragedCooldown : boss.lavaBurstBaseCooldown;
   showToast("Lava burst incoming!");
+  AudioManager.playSound("bossWarning");
 }
 
 function createLavaBurst(x, y) {
@@ -2244,6 +2789,7 @@ function updateGhostPirateDash(deltaTime) {
   boss.warningAttackTimer = boss.dashWarning;
   boss.dashAttackCooldown = boss.dashCooldown;
   boss.element.classList.add("dash-warning");
+  AudioManager.playSound("bossWarning");
   showBossDashWarning();
 }
 
@@ -2480,6 +3026,7 @@ function attackBoss() {
   playBossHitEffect();
   showFloatingText(`-${meleeDamage} HP`, boss.x + 5, boss.y - 10, "damage");
   showToast("Boss hit!");
+  AudioManager.playSound("bossHit");
   updateHud(`${boss.name} hit! Boss HP: ${boss.hp}/${boss.maxHp}`);
   saveGame();
 
@@ -2497,6 +3044,7 @@ function finishBossEvent() {
   const defeatedBoss = boss;
   const defeatToken = bossDefeatToken + 1;
 
+  AudioManager.playSound("bossDefeated");
   bossDefeatToken = defeatToken;
   bossActive = false;
   attackCooldown = 0;
@@ -2576,6 +3124,8 @@ function showSlashEffect(attackArea, direction) {
 }
 
 function performMeleeAttack() {
+  AudioManager.playSound("sword");
+
   if (attackRegularEnemy()) {
     return;
   }
@@ -2665,6 +3215,7 @@ function defeatEnemy(enemy) {
   enemy.defeated = true;
   enemy.element.classList.add("defeated");
   enemy.element.classList.remove("warning", "chasing");
+  AudioManager.playSound("enemyDefeated");
   showFloatingText("Defeated!", enemy.x - 4, enemy.y - 14, "defeat");
 
   if (!enemy.rewarded) {
@@ -2749,6 +3300,7 @@ function shootPirateGun(targetX, targetY) {
 
   showMuzzleFlash(playerCenter, vector);
   gunCooldown = gunCooldownDuration;
+  AudioManager.playSound("gun");
   showToast("Pirate Gun fired!");
 }
 
@@ -2841,6 +3393,7 @@ function damageBoss(damage, message) {
   playBossHitEffect();
   showFloatingText(`-${damage} HP`, boss.x + 5, boss.y - 10, "damage");
   showToast(message);
+  AudioManager.playSound("bossHit");
   updateHud(`${boss.name} hit! Boss HP: ${boss.hp}/${boss.maxHp}`);
   saveGame();
 
@@ -2986,6 +3539,7 @@ function showRouteQuestion(level) {
   routePanel.classList.remove("hidden");
   resetMovementKeys();
   updateQuestPanel();
+  updateMusicForGameState();
 }
 
 function answerRouteQuestion(choiceIndex) {
@@ -2998,6 +3552,7 @@ function answerRouteQuestion(choiceIndex) {
     chestElement.classList.remove("hidden");
     chestElement.classList.add("open");
     showToast("Route unlocked!");
+    AudioManager.playSound("routeCorrect");
     updateHud(result.message);
     saveGame();
     focusGame();
@@ -3007,6 +3562,7 @@ function answerRouteQuestion(choiceIndex) {
 
   health = result.health;
   showToast("Wrong answer! HP -1");
+  AudioManager.playSound("routeWrong");
   updateHud(result.message);
   saveGame();
 
@@ -3055,6 +3611,7 @@ function takeDamage(statusMessage, gameOverMessage, options = {}) {
     showFloatingText("-1 HP", player.x + 2, player.y - 9, "damage");
   }
 
+  AudioManager.playSound("hurt");
   showToast("HP -1");
   updateHud(statusMessage);
   saveGame();
@@ -3118,6 +3675,7 @@ function showUpgradeMenu() {
   upgradeMenu.classList.remove("hidden");
   resetMovementKeys();
   updateQuestPanel();
+  updateMusicForGameState();
 }
 
 function getUpgradeMenuMessage() {
@@ -3195,6 +3753,7 @@ function buyUpgrade(upgradeId) {
     ? "Pirate Gun unlocked! Left click inside the map to shoot."
     : `${upgrade.name} purchased!`;
   showToast(purchaseMessage);
+  AudioManager.playSound("purchase");
   updateHud(purchaseMessage);
   upgradeMessage.textContent = `${purchaseMessage} Wallet: ${totalCoins} coins.`;
   upgradeWallet.textContent = `Wallet: ${totalCoins} coins`;
@@ -3218,6 +3777,7 @@ function buyHeartPotion(upgrade) {
   totalCoins -= upgrade.cost;
   health = Math.min(maxHealth, health + 1);
   showToast("Heart Potion used! HP +1");
+  AudioManager.playSound("purchase");
   updateHud(`Heart Potion restored 1 HP. Wallet: ${totalCoins} coins.`);
   upgradeMessage.textContent = `Heart Potion restored 1 HP. Wallet: ${totalCoins} coins.`;
   upgradeWallet.textContent = `Wallet: ${totalCoins} coins`;
@@ -3306,6 +3866,7 @@ function showWorldMap() {
   worldMap.classList.remove("hidden");
   resetMovementKeys();
   updateQuestPanel();
+  updateMusicForGameState();
 }
 
 function getWorldMapMessage() {
@@ -3419,6 +3980,7 @@ function endGame(title, message) {
   gameOverlay.classList.remove("hidden");
   resetMovementKeys();
   updateQuestPanel();
+  updateMusicForGameState();
 }
 
 function handleOverlayButton() {
@@ -3428,6 +3990,16 @@ function handleOverlayButton() {
   } else {
     startGame();
   }
+}
+
+async function handleStartAdventureClick() {
+  await AudioManager.unlockAudio();
+  startNewAdventure();
+}
+
+async function handleContinueAdventureClick() {
+  await AudioManager.unlockAudio();
+  continueAdventure();
 }
 
 function isRouteQuestionOpen() {
@@ -3463,7 +4035,7 @@ function getMovementDirectionFromCode(code) {
 }
 
 function isGameplayBlocked() {
-  return introActive || gameOver || isRouteQuestionOpen() || isWorldMapOpen() || isUpgradeMenuOpen();
+  return introActive || gameOver || isNpcDialogueOpen() || isRouteQuestionOpen() || isWorldMapOpen() || isUpgradeMenuOpen();
 }
 
 function resetMovementKeys() {
@@ -3498,6 +4070,8 @@ function gameLoop(currentTime) {
 }
 
 document.addEventListener("keydown", (event) => {
+  AudioManager.unlockAudio();
+
   const movementDirection = getMovementDirectionFromCode(event.code);
 
   if (movementDirection) {
@@ -3552,6 +4126,8 @@ function handleGameAreaClick(event) {
     return;
   }
 
+  AudioManager.unlockAudio();
+
   if (isGameplayBlocked()) {
     return;
   }
@@ -3578,14 +4154,31 @@ document.addEventListener("visibilitychange", () => {
   }
 });
 
+document.addEventListener("click", (event) => {
+  const clickedButton = event.target.closest("button");
+
+  if (!clickedButton) {
+    return;
+  }
+
+  AudioManager.unlockAudio();
+
+  if (clickedButton !== muteButton && clickedButton !== testSoundButton) {
+    AudioManager.playSound("button");
+  }
+}, true);
+
 restartButton.addEventListener("click", startGame);
 overlayRestartButton.addEventListener("click", handleOverlayButton);
 continueMapButton.addEventListener("click", continueToWorldMap);
-startAdventureButton.addEventListener("click", startNewAdventure);
-continueAdventureButton.addEventListener("click", continueAdventure);
+startAdventureButton.addEventListener("click", handleStartAdventureClick);
+continueAdventureButton.addEventListener("click", handleContinueAdventureClick);
+testSoundButton.addEventListener("click", () => AudioManager.testSound());
+muteButton.addEventListener("click", AudioManager.toggleMute);
 gameArea.addEventListener("click", handleGameAreaClick);
 
 startGame({ clearSave: false });
 updateContinueControls();
+syncMuteButton();
 gameLoop();
 
