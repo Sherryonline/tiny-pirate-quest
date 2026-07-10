@@ -1,5 +1,7 @@
 # Tiny Pirate Quest
 
+**Latest version:** 1.0.0
+
 Tiny Pirate Quest is a simple one-player 2D browser adventure game built with HTML, CSS, and JavaScript.
 
 The player controls a young pirate, collects coins across island levels, defeats island bosses, unlocks sea routes, gathers map fragments, upgrades the ship, recruits crew members, and finally reaches Treasure Island.
