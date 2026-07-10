@@ -24,25 +24,25 @@
       </div>
     </section>
 
-    <section class="quest-panel" aria-label="Quest information">
-      <div>
-        <span class="panel-label">Island</span>
+    <section class="quest-panel mission-bar" aria-label="Mission information">
+      <div class="mission-chip mission-chip-island">
+        <span class="mission-icon" aria-hidden="true">🏝️</span>
         <strong id="questIsland">Coconut Island</strong>
       </div>
-      <div>
-        <span class="panel-label">Objective</span>
-        <strong id="questObjective">Collect all coins</strong>
+      <div class="mission-chip mission-chip-objective">
+        <span class="mission-icon" aria-hidden="true">🎯</span>
+        <strong id="questObjective">Collect coins</strong>
       </div>
-      <div>
-        <span class="panel-label">Coins</span>
+      <div class="mission-chip mission-chip-coins">
+        <span class="mission-icon" aria-hidden="true">🪙</span>
         <strong><span id="questCoins">0</span>/<span id="questCoinGoal">10</span></strong>
       </div>
       <div class="quest-fragments-fallback">
         <span class="panel-label">Fragments</span>
         <strong id="questFragments">0/3</strong>
       </div>
-      <div>
-        <span class="panel-label">Side Quest</span>
+      <div class="mission-chip mission-chip-side">
+        <span class="mission-icon" aria-hidden="true">🐚</span>
         <strong id="questSideObjective">None</strong>
       </div>
       <div>
@@ -53,12 +53,13 @@
         <span class="panel-label">Wallet</span>
         <strong id="questWallet">0 coins</strong>
       </div>
-      <div>
-        <span class="panel-label">Next Action</span>
+      <div class="mission-chip mission-chip-next">
+        <span class="mission-icon" aria-hidden="true">➜</span>
+        <span class="mission-next-label">Next:</span>
         <strong id="questNextAction">Collect coins</strong>
       </div>
       <div class="quest-hint">
-        <span class="panel-label">Hint</span>
+        <span class="mission-hint-icon" aria-hidden="true">?</span>
         <strong id="questHint">Collect every coin on this island.</strong>
       </div>
     </section>
@@ -100,7 +101,15 @@
           <span class="smoke smoke-three"></span>
         </div>
       </div>
-      <div id="player" class="sprite">🧑‍☠️</div>
+      <div id="player" class="sprite player-character" aria-label="Tiny pirate">
+        <span class="pirate-hat"></span>
+        <span class="pirate-head"></span>
+        <span class="pirate-eye pirate-eye-left"></span>
+        <span class="pirate-eye pirate-eye-right"></span>
+        <span class="pirate-smile"></span>
+        <span class="pirate-body"></span>
+        <span class="pirate-sash"></span>
+      </div>
       <div id="playerHpLabel" class="hp-label player-hp-label">HP: 3</div>
       <div id="enemy" class="sprite">🦀</div>
       <div id="bossHpLabel" class="hp-label boss-hp-label hidden"></div>
@@ -143,10 +152,10 @@
               <span class="intro-label">Controls</span>
               <div class="intro-controls">
                 <div><strong>Move</strong><span>WASD / Arrow Keys</span></div>
-                <div><strong>Attack</strong><span>Space</span></div>
+                <div><strong>Sword Attack</strong><span>Space</span></div>
+                <div><strong>Shoot</strong><span>Left Click after buying Pirate Gun</span></div>
                 <div><strong>Dash</strong><span>Shift</span></div>
-                <div><strong>Talk</strong><span>E</span></div>
-                <div><strong>Shoot</strong><span>J after Pirate Gun</span></div>
+                <div><strong>Talk</strong><span>E near NPCs</span></div>
               </div>
             </section>
             <section class="intro-section">
@@ -175,7 +184,7 @@
 
     <div id="toastContainer" class="toast-container" aria-live="polite"></div>
 
-    <p class="help">Move: WASD/Arrows · Attack: Space · Dash: Shift · Talk: E · Shoot: J</p>
+    <p class="help">Move: WASD/Arrows · Sword: Space · Dash: Shift · Talk: E · Buy Pirate Gun to shoot</p>
     <button id="restartButton" type="button">Restart Game</button>
   </main>
 

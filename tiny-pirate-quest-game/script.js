@@ -33,6 +33,7 @@ const playerHpLabel = document.getElementById("playerHpLabel");
 const bossHpLabel = document.getElementById("bossHpLabel");
 const statusElement = document.getElementById("status");
 const restartButton = document.getElementById("restartButton");
+const helpElement = document.querySelector(".help");
 const gameOverlay = document.getElementById("gameOverlay");
 const overlayTitle = document.getElementById("overlayTitle");
 const overlayMessage = document.getElementById("overlayMessage");
@@ -61,12 +62,13 @@ const gameHeight = 480;
 const spriteSize = 34;
 const basePlayerSpeed = 220;
 const baseMaxHealth = 3;
-const bossAttackRange = 100;
-const bossAttackThickness = 70;
-const bossLockOnRange = 130;
+const bossAttackRange = 60;
+const bossAttackThickness = 50;
 const bossChaseDuration = 3;
-const gunCooldownDuration = 0.9;
+const gunCooldownDuration = 0.7;
 const bulletSpeed = 420;
+const bulletLifetime = 1.35;
+const bulletSize = 12;
 const ghostBulletSpeed = 250;
 const enemyProjectileSpeed = 230;
 const dashDistance = 90;
@@ -367,7 +369,7 @@ const shipUpgrades = [
     id: "pirateGun",
     name: "Pirate Gun",
     cost: 12,
-    description: "Unlock ranged attacks with J. Bullets have a cooldown."
+    description: "Unlock ranged attack. Left click inside the map to shoot."
   },
   {
     id: "heartPotion",
@@ -1052,6 +1054,8 @@ function updateHud(message) {
   crewElement.textContent = crew.length > 0 ? crew.join(", ") : "None";
   activeFruitElement.textContent = getActiveFruitText();
   statusElement.textContent = message;
+  syncGameAreaCursor();
+  updateControlGuide();
   updateHpLabels();
   updateHeartHealth();
   updateQuestPanel();
@@ -1064,6 +1068,20 @@ function updateHeartHealth() {
   heartHealthElement.title = `${health}/${maxHealth} HP`;
 }
 
+function syncGameAreaCursor() {
+  gameArea.classList.toggle("has-pirate-gun", purchasedUpgrades.includes("pirateGun") && !introActive);
+}
+
+function updateControlGuide() {
+  if (!helpElement) {
+    return;
+  }
+
+  helpElement.textContent = purchasedUpgrades.includes("pirateGun")
+    ? "Move: WASD/Arrows · Sword: Space · Shoot: Left Click · Dash: Shift · Talk: E"
+    : "Move: WASD/Arrows · Sword: Space · Dash: Shift · Talk: E · Buy Pirate Gun to shoot";
+}
+
 function updateQuestPanel() {
   const level = levels[currentLevelIndex];
   const coinGoal = finalIslandActive ? 0 : level.coinCount;
@@ -1074,7 +1092,7 @@ function updateQuestPanel() {
   questCoinsElement.textContent = score;
   questCoinGoalElement.textContent = coinGoal;
   questFragmentsElement.textContent = `${mapFragments}/3`;
-  questSideObjectiveElement.textContent = getSideQuestText();
+  questSideObjectiveElement.textContent = getMissionSideQuestText();
   questSideProgressElement.textContent = getSideQuestProgressText();
   questWalletElement.textContent = `${totalCoins} coins`;
   questNextActionElement.textContent = getNextActionText();
@@ -1091,34 +1109,34 @@ function shouldSuppressQuestPanel() {
 
 function getQuestObjective() {
   if (finalIslandActive) {
-    return ghostPirateDefeated ? "Open the Grand Treasure" : "Defeat the Ghost Pirate";
+    return ghostPirateDefeated ? "Open treasure" : "Defeat Ghost Pirate";
   }
 
   if (isUpgradeMenuOpen()) {
-    return "Buy upgrades or continue";
+    return "Shop or Sail";
   }
 
   if (isWorldMapOpen()) {
-    return mapFragments >= 3 ? "Sail to Treasure Island" : "Sail to next island";
+    return mapFragments >= 3 ? "Sail to treasure" : "Choose island";
   }
 
   if (isRouteQuestionOpen()) {
-    return "Solve route clue";
+    return "Answer clue";
   }
 
   if (bossActive) {
-    return "Defeat the boss";
+    return "Defeat boss";
   }
 
   if (score < levels[currentLevelIndex].coinCount) {
-    return "Collect all coins";
+    return "Collect coins";
   }
 
   if (routeUnlocked) {
     return "Open World Map";
   }
 
-  return "Explore the island";
+  return "Explore";
 }
 
 function getQuestHint() {
@@ -1131,12 +1149,12 @@ function getQuestHint() {
 
   if (finalIslandActive) {
     return ghostPirateDefeated
-      ? "Reach the Grand Treasure and open it."
-      : "Defeat the Ghost Pirate first. Dash away from warning attacks.";
+      ? "Open the Grand Treasure."
+      : "Dash away from warning attacks.";
   }
 
   if (isUpgradeMenuOpen()) {
-    return "Spend wallet coins or open the World Map.";
+    return "Buy upgrades or open map.";
   }
 
   if (isWorldMapOpen()) {
@@ -1144,18 +1162,18 @@ function getQuestHint() {
   }
 
   if (isRouteQuestionOpen()) {
-    return "Use the island clue to choose the correct answer.";
+    return "Use the clue to pick the answer.";
   }
 
   if (bossActive) {
-    return "Attack during rest or stun. Dash away during chase.";
+    return "Attack during rest or stun.";
   }
 
   if (score < levels[currentLevelIndex].coinCount) {
-    return "Collect every visible coin to summon the boss.";
+    return "Collect coins to summon boss.";
   }
 
-  return "Follow the next panel or map prompt.";
+  return "Follow the next action.";
 }
 
 function getNextActionText() {
@@ -1163,7 +1181,7 @@ function getNextActionText() {
     return "Start Adventure";
   }
   if (isUpgradeMenuOpen()) {
-    return "Buy or continue";
+    return "Shop or Sail";
   }
   if (isWorldMapOpen()) {
     return "Choose island";
@@ -1172,13 +1190,13 @@ function getNextActionText() {
     return "Answer clue";
   }
   if (bossActive) {
-    return purchasedUpgrades.includes("pirateGun") ? "Space or J" : "Attack boss";
+    return purchasedUpgrades.includes("pirateGun") ? "Sword or Click" : "Defeat boss";
   }
   if (finalIslandActive) {
     return ghostPirateDefeated ? "Open treasure" : "Fight boss";
   }
   if (npc && isTouching(player, npc)) {
-    return "Press E";
+    return "Talk to NPC";
   }
   if (score < levels[currentLevelIndex].coinCount) {
     return "Collect coins";
@@ -1245,6 +1263,35 @@ function getSideQuestProgressText() {
   return `${state.progress}/${config.target}`;
 }
 
+function getMissionSideQuestText() {
+  const config = getCurrentSideQuestConfig();
+  const state = getCurrentSideQuestState();
+
+  if (!config || !state) {
+    return "No side quest";
+  }
+
+  if (state.rewarded) {
+    return `Complete - ${config.reward}`;
+  }
+
+  return `${getSideQuestShortName(config)} ${state.progress}/${config.target}`;
+}
+
+function getSideQuestShortName(config) {
+  if (config.itemName === "shells") {
+    return "Shells";
+  }
+  if (config.itemName === "ghost lights") {
+    return "Ghost lights";
+  }
+  if (config.itemName === "fire stones") {
+    return "Fire stones";
+  }
+
+  return config.objective.replace(/^Collect\s+/i, "");
+}
+
 function updateBattlePanel() {
   if (!bossActive || !boss) {
     battlePanel.classList.add("hidden");
@@ -1302,6 +1349,10 @@ function getBattleHintText() {
     return "";
   }
 
+  if (purchasedUpgrades.includes("pirateGun")) {
+    return "Sword: Space · Shoot: Left Click";
+  }
+
   if (boss.invulnerableTimer > 0) {
     return boss.hint;
   }
@@ -1318,7 +1369,7 @@ function getBattleHintText() {
     return "Attack now!";
   }
 
-  return boss.hint || (purchasedUpgrades.includes("pirateGun") ? "Dodge, then use Space or J." : "Attack during rest or stun!");
+  return boss.hint || (purchasedUpgrades.includes("pirateGun") ? "Dodge, then aim with Click." : "Attack during rest or stun!");
 }
 
 function showToast(message) {
@@ -1502,28 +1553,6 @@ function updateLastDirection(key) {
   } else if (key === "right" || key === "arrowright" || key === "d") {
     lastDirection = "right";
   }
-}
-
-function getDirectionToBoss() {
-  if (!bossActive || !boss) {
-    return lastDirection;
-  }
-
-  const playerCenter = getSpriteCenter(player);
-  const bossCenter = getSpriteCenter(boss);
-  const dx = bossCenter.x - playerCenter.x;
-  const dy = bossCenter.y - playerCenter.y;
-  const distance = Math.hypot(dx, dy);
-
-  if (distance > bossLockOnRange) {
-    return lastDirection;
-  }
-
-  if (Math.abs(dx) >= Math.abs(dy)) {
-    return dx < 0 ? "left" : "right";
-  }
-
-  return dy < 0 ? "up" : "down";
 }
 
 function getSpriteCenter(sprite) {
@@ -2399,18 +2428,19 @@ function attackBoss() {
     return;
   }
 
+  const attackDirection = lastDirection;
+
   if (isBossInvulnerable()) {
-    showSlashEffect(GameLogic.getAttackArea(player, getDirectionToBoss(), {
+    showSlashEffect(GameLogic.getAttackArea(player, attackDirection, {
       spriteSize,
       range: bossAttackRange,
       thickness: bossAttackThickness
-    }), getDirectionToBoss());
+    }), attackDirection);
     showToast(`${boss.name} is invulnerable!`);
     updateHud("Wait for the warning to end before attacking.");
     return;
   }
 
-  const attackDirection = getDirectionToBoss();
   const meleeRange = purchasedUpgrades.includes("sharpSword") ? bossAttackRange + 22 : bossAttackRange;
   const meleeThickness = purchasedUpgrades.includes("sharpSword") ? bossAttackThickness + 16 : bossAttackThickness;
   const meleeDamage = purchasedUpgrades.includes("sharpSword") ? 2 : 1;
@@ -2631,17 +2661,6 @@ function getTargetEnemy() {
     .sort((a, b) => getDistance(a, player) - getDistance(b, player))[0] || null;
 }
 
-function getDirectionToEnemy(enemy) {
-  const dx = enemy.x - player.x;
-  const dy = enemy.y - player.y;
-
-  if (Math.abs(dx) > Math.abs(dy)) {
-    return dx < 0 ? "left" : "right";
-  }
-
-  return dy < 0 ? "up" : "down";
-}
-
 function defeatEnemy(enemy) {
   enemy.defeated = true;
   enemy.element.classList.add("defeated");
@@ -2681,7 +2700,7 @@ function defeatEnemy(enemy) {
   }, 420);
 }
 
-function shootPirateGun() {
+function shootPirateGun(targetX, targetY) {
   if (introActive || gameOver || !purchasedUpgrades.includes("pirateGun")) {
     return;
   }
@@ -2695,54 +2714,75 @@ function shootPirateGun() {
     return;
   }
 
-  const direction = getGunDirection();
-  const vector = getDirectionVector(direction);
+  const playerCenter = getSpriteCenter(player);
+  const dx = targetX - playerCenter.x;
+  const dy = targetY - playerCenter.y;
+  const distance = Math.hypot(dx, dy);
+
+  if (distance === 0) {
+    return;
+  }
+
+  const vector = {
+    x: dx / distance,
+    y: dy / distance
+  };
   const element = document.createElement("div");
   element.className = "bullet-effect";
   element.textContent = "•";
   gameArea.appendChild(element);
 
+  const startX = playerCenter.x - 6 + vector.x * 16;
+  const startY = playerCenter.y - 6 + vector.y * 16;
+
+  element.style.left = `${startX}px`;
+  element.style.top = `${startY}px`;
+
   bullets.push({
-    x: player.x + spriteSize / 2 - 5,
-    y: player.y + spriteSize / 2 - 5,
+    x: startX,
+    y: startY,
     dx: vector.x,
     dy: vector.y,
+    lifetime: bulletLifetime,
     element
   });
 
+  showMuzzleFlash(playerCenter, vector);
   gunCooldown = gunCooldownDuration;
   showToast("Pirate Gun fired!");
 }
 
-function getGunDirection() {
-  if (bossActive && boss) {
-    return getDirectionToBoss();
-  }
+function showMuzzleFlash(origin, vector) {
+  const flash = document.createElement("div");
+  const angle = Math.atan2(vector.y, vector.x) * 180 / Math.PI;
 
-  const target = enemies
-    .filter((enemy) => !enemy.defeated)
-    .sort((a, b) => getDistance(a, player) - getDistance(b, player))[0];
+  flash.className = "muzzle-flash";
+  flash.style.left = `${origin.x + vector.x * 12}px`;
+  flash.style.top = `${origin.y + vector.y * 12}px`;
+  flash.style.transform = `rotate(${angle}deg)`;
+  gameArea.appendChild(flash);
 
-  return target ? getDirectionToEnemy(target) : lastDirection;
+  setTimeout(() => flash.remove(), 180);
 }
 
 function updateBullets(deltaTime) {
   bullets.forEach((bullet) => {
     bullet.x += bullet.dx * bulletSpeed * deltaTime;
     bullet.y += bullet.dy * bulletSpeed * deltaTime;
+    bullet.lifetime = Math.max(0, bullet.lifetime - deltaTime);
 
-    if (bullet.x < -12 || bullet.x > gameWidth || bullet.y < -12 || bullet.y > gameHeight) {
+    if (bullet.lifetime === 0 || bullet.x < -12 || bullet.x > gameWidth || bullet.y < -12 || bullet.y > gameHeight) {
       bullet.done = true;
       return;
     }
 
-    if (bossActive && boss && !isBossInvulnerable() && isTouching({ x: bullet.x, y: bullet.y }, boss)) {
+    if (bossActive && boss && !isBossInvulnerable() && bulletHitsSprite(bullet, boss)) {
       damageBoss(1, "Gun shot!");
       bullet.done = true;
       return;
     }
 
-    const enemy = enemies.find((item) => !item.defeated && isTouching({ x: bullet.x, y: bullet.y }, item));
+    const enemy = enemies.find((item) => !item.defeated && bulletHitsSprite(bullet, item));
     if (enemy) {
       damageEnemy(enemy, 1, "Gun shot!");
       bullet.done = true;
@@ -2753,6 +2793,15 @@ function updateBullets(deltaTime) {
     .filter((bullet) => bullet.done)
     .forEach((bullet) => bullet.element.remove());
   bullets = bullets.filter((bullet) => !bullet.done);
+}
+
+function bulletHitsSprite(bullet, sprite) {
+  return (
+    bullet.x < sprite.x + spriteSize &&
+    bullet.x + bulletSize > sprite.x &&
+    bullet.y < sprite.y + spriteSize &&
+    bullet.y + bulletSize > sprite.y
+  );
 }
 
 function clearBullets() {
@@ -3142,9 +3191,12 @@ function buyUpgrade(upgradeId) {
   totalCoins = result.wallet;
   purchasedUpgrades = result.purchasedUpgrades;
   applyUpgradeEffect(upgradeId);
-  showToast("Upgrade purchased!");
-  updateHud(`${upgrade.name} purchased!`);
-  upgradeMessage.textContent = `${upgrade.name} applied immediately. Wallet: ${totalCoins} coins.`;
+  const purchaseMessage = upgradeId === "pirateGun"
+    ? "Pirate Gun unlocked! Left click inside the map to shoot."
+    : `${upgrade.name} purchased!`;
+  showToast(purchaseMessage);
+  updateHud(purchaseMessage);
+  upgradeMessage.textContent = `${purchaseMessage} Wallet: ${totalCoins} coins.`;
   upgradeWallet.textContent = `Wallet: ${totalCoins} coins`;
   renderUpgradeChoices();
   saveGame();
@@ -3477,14 +3529,6 @@ document.addEventListener("keydown", (event) => {
 
   const key = event.key.toLowerCase();
 
-  if (key === "j") {
-    event.preventDefault();
-    if (!isGameplayBlocked()) {
-      shootPirateGun();
-    }
-    return;
-  }
-
   if (key === "e") {
     event.preventDefault();
     if (!isGameplayBlocked()) {
@@ -3503,6 +3547,30 @@ document.addEventListener("keyup", (event) => {
   }
 });
 
+function handleGameAreaClick(event) {
+  if (event.target.closest("button")) {
+    return;
+  }
+
+  if (isGameplayBlocked()) {
+    return;
+  }
+
+  event.preventDefault();
+  focusGame();
+
+  if (!purchasedUpgrades.includes("pirateGun")) {
+    showToast("Buy Pirate Gun to shoot!");
+    return;
+  }
+
+  const rect = gameArea.getBoundingClientRect();
+  const targetX = event.clientX - rect.left;
+  const targetY = event.clientY - rect.top;
+
+  shootPirateGun(targetX, targetY);
+}
+
 window.addEventListener("blur", resetMovementKeys);
 document.addEventListener("visibilitychange", () => {
   if (document.hidden) {
@@ -3515,6 +3583,7 @@ overlayRestartButton.addEventListener("click", handleOverlayButton);
 continueMapButton.addEventListener("click", continueToWorldMap);
 startAdventureButton.addEventListener("click", startNewAdventure);
 continueAdventureButton.addEventListener("click", continueAdventure);
+gameArea.addEventListener("click", handleGameAreaClick);
 
 startGame({ clearSave: false });
 updateContinueControls();
