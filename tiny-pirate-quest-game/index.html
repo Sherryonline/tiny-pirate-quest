@@ -10,6 +10,7 @@
   <main class="game-wrap pre-start">
     <h1>Tiny Pirate Quest</h1>
 
+    <section class="top-header" aria-label="Game status and quest">
     <section class="hud" aria-label="Game information">
       <div class="hud-item hud-health"><span id="heartHealth" class="heart-health">---</span></div>
       <div class="hud-item">🪙 Wallet: <span id="totalCoins">0</span></div>
@@ -62,6 +63,8 @@
       </div>
     </section>
 
+    </section>
+
     <section id="gameArea" class="game-area" aria-label="Tiny Pirate Quest game area">
       <div id="battlePanel" class="battle-panel hidden" aria-label="Boss battle information">
         <div class="battle-header">
@@ -97,7 +100,7 @@
           <span class="smoke smoke-three"></span>
         </div>
       </div>
-      <div id="player" class="sprite">🏴‍☠️</div>
+      <div id="player" class="sprite">🧑‍☠️</div>
       <div id="playerHpLabel" class="hp-label player-hp-label">HP: 3</div>
       <div id="enemy" class="sprite">🦀</div>
       <div id="bossHpLabel" class="hp-label boss-hp-label hidden"></div>
@@ -130,20 +133,37 @@
       </div>
       <div id="introOverlay" class="intro-overlay">
         <div class="intro-card">
-          <h2>Tiny Pirate Quest</h2>
-          <p>You are a tiny pirate searching for the lost treasure of the Tiny Sea. Explore islands, defeat sea monsters, collect gold coins, find map fragments, and unlock the route to the final treasure.</p>
-          <div class="intro-controls">
-            <div><strong>Move:</strong> WASD or Arrow Keys</div>
-            <div><strong>Attack:</strong> Space</div>
-            <div><strong>Shoot:</strong> J after buying Pirate Gun</div>
-            <div><strong>Dash:</strong> Shift</div>
-            <div><strong>Interact:</strong> E near NPCs</div>
-            <div>Collect coins</div>
-            <div>Defeat boss</div>
-            <div>Solve route clue</div>
-            <div>Open World Map</div>
+          <h2>Welcome, Tiny Pirate!</h2>
+          <div class="intro-sections">
+            <section class="intro-section">
+              <span class="intro-label">Story</span>
+              <p>You are a tiny pirate searching for the lost treasure of the Tiny Sea.</p>
+            </section>
+            <section class="intro-section">
+              <span class="intro-label">Controls</span>
+              <div class="intro-controls">
+                <div><strong>Move</strong><span>WASD / Arrow Keys</span></div>
+                <div><strong>Attack</strong><span>Space</span></div>
+                <div><strong>Dash</strong><span>Shift</span></div>
+                <div><strong>Talk</strong><span>E</span></div>
+                <div><strong>Shoot</strong><span>J after Pirate Gun</span></div>
+              </div>
+            </section>
+            <section class="intro-section">
+              <span class="intro-label">Goal</span>
+              <ol class="intro-goals">
+                <li>Collect coins</li>
+                <li>Defeat monsters</li>
+                <li>Find map fragments</li>
+                <li>Unlock the final treasure route</li>
+              </ol>
+            </section>
           </div>
-          <button id="startAdventureButton" type="button">Start Adventure</button>
+          <p id="continueSaveHint" class="continue-save-hint hidden">Continue from your last saved island progress.</p>
+          <div class="intro-actions">
+            <button id="continueAdventureButton" type="button" class="action-primary hidden">Continue Adventure</button>
+            <button id="startAdventureButton" type="button" class="action-primary">Start Adventure</button>
+          </div>
         </div>
       </div>
       <div id="gameOverlay" class="game-overlay hidden">
@@ -155,7 +175,7 @@
 
     <div id="toastContainer" class="toast-container" aria-live="polite"></div>
 
-    <p class="help">Use arrow keys or WASD to move, Shift to dash, Space to attack bosses, J to shoot after buying Pirate Gun, and E to talk to NPCs.</p>
+    <p class="help">Move: WASD/Arrows · Attack: Space · Dash: Shift · Talk: E · Shoot: J</p>
     <button id="restartButton" type="button">Restart Game</button>
   </main>
 

@@ -37,7 +37,10 @@ You are a tiny pirate searching for the lost treasure of the Tiny Sea. Explore i
 - Three main islands with different rules and visuals
 - Final Treasure Island unlock
 - Coin collection and wallet system
-- Enemy, lava, and boss collision damage
+- Enemy types with patrol, chase, warning, projectile, stunned, and defeated states
+- Player melee and Pirate Gun attacks against regular enemies
+- Enemy defeat rewards with one-time coin payouts
+- Enemy, projectile, lava, and boss damage
 - Player HP shown under the player
 - Boss HP shown under the boss during boss fights
 - Space key boss attack with cooldown
@@ -63,14 +66,14 @@ You are a tiny pirate searching for the lost treasure of the Tiny Sea. Explore i
 
 | Level | Island | Goal | Hazards |
 |---|---|---|---|
-| 1 | Coconut Island | Collect 10 coins | 1 crab, Giant Crab boss |
-| 2 | Mist Island | Collect 12 coins | 2 enemies, Fog Ghost boss |
-| 3 | Volcano Island | Collect 15 coins | 2 enemies, lava traps, Lava Beast boss |
-| Final | Treasure Island | Defeat Ghost Pirate, then open Grand Treasure | Ghost Pirate boss |
+| 1 | Coconut Island | Collect 10 coins | Crab Patrol, Giant Crab boss |
+| 2 | Mist Island | Collect 12 coins | Fog Spirits, Fog Ghost boss |
+| 3 | Volcano Island | Collect 15 coins | Fire Imps, fireballs, lava traps, Lava Beast boss |
+| Final | Treasure Island | Defeat Ghost Pirate, then open Grand Treasure | Ghost Minions, Ghost Pirate boss |
 
 ## How to Play
 
-1. Open `index.html` in a browser.
+1. Open `tiny-pirate-quest-game/index.html` in a browser.
 2. Read the story intro and click **Start Adventure**.
 3. Move the pirate around the island.
 4. Collect all coins.
@@ -90,7 +93,7 @@ You are a tiny pirate searching for the lost treasure of the Tiny Sea. Explore i
 | Move Down | `S` or `Arrow Down` |
 | Move Left | `A` or `Arrow Left` |
 | Move Right | `D` or `Arrow Right` |
-| Attack Boss | `Space` |
+| Melee Attack | `Space` |
 | Shoot Pirate Gun | `J` |
 | Dash | `Shift` |
 | Interact with NPC | `E` |
@@ -160,6 +163,40 @@ Short toast messages appear for important actions, including coin collection, bo
 ### Shop Wallet
 
 The upgrade menu shows the current wallet as `Wallet: X coins`. Each upgrade card shows the name, price, effect, and either a buy button or owned state.
+
+## Regular Enemy Combat
+
+Regular enemies now vary by island and can be fought directly.
+
+| Island | Enemy Type | HP | Behavior |
+|---|---|---:|---|
+| Coconut Island | Crab Patrol | 1 | Slow left/right patrol with collision damage |
+| Mist Island | Fog Spirit | 2 | Patrols, then chases for a short burst when the player gets close |
+| Volcano Island | Fire Imp | 2 | Patrols, flashes a warning, then shoots a straight fireball |
+| Final Treasure Island | Ghost Minion | 2 | Spawns as final-island pressure and slowly chases the player |
+
+Enemy states include:
+
+- Patrol
+- Chase
+- Attack
+- Cooldown
+- Stunned
+- Defeated
+
+Player attacks against regular enemies:
+
+- `Space` swings in the player-facing direction and can hit normal enemies before falling back to boss attacks.
+- Sharp Sword increases melee size and damage.
+- Pirate Gun bullets can hit regular enemies as well as bosses.
+- Enemy hits show a hit effect, floating damage text, and toast feedback.
+- Defeating an enemy gives a one-time `+1` wallet coin reward and removes that enemy.
+
+Projectile fairness:
+
+- Fire Imps show a visible warning before shooting.
+- Fireballs travel in a straight line and are removed when they hit the player, leave the map, or expire.
+- Fireballs respect the existing player damage cooldown.
 
 ## Boss Fight Rules
 
@@ -233,7 +270,7 @@ Final Treasure Island now starts with the Grand Treasure locked. The Ghost Pirat
 | Pirate Gun | Unlocks `J` ranged attack with cooldown |
 | Heart Potion | Restores 1 HP immediately, up to max HP, and can be bought multiple times |
 
-Pirate Gun bullets travel in the last movement direction, or toward the boss when the existing soft lock-on can aim at a nearby boss. Bullets can hit bosses, show a visible shot effect, and use a cooldown so the gun cannot be spammed.
+Pirate Gun bullets travel toward the active boss during boss fights, toward the nearest regular enemy outside boss fights, or in the last movement direction when no target is available. Bullets can hit bosses and regular enemies, show a visible shot effect, and use a cooldown so the gun cannot be spammed.
 
 Heart Potion cannot exceed max health. If HP is full, the shop shows the toast `HP is already full.`
 
@@ -279,12 +316,16 @@ tiny-pirate-quest/
 |   `-- workflows/
 |-- tests/
 |   `-- gameLogic.test.js
-|-- index.html
-|-- style.css
-|-- script.js
-|-- gameLogic.js
-|-- package.json
-|-- package-lock.json
+|-- tiny-pirate-quest-game/
+|   |-- tests/
+|   |   `-- gameLogic.test.js
+|   |-- index.html
+|   |-- style.css
+|   |-- script.js
+|   |-- gameLogic.js
+|   |-- package.json
+|   `-- package-lock.json
+|-- tiny-pirate-quest-discord/
 `-- README.md
 ```
 
@@ -302,13 +343,13 @@ tiny-pirate-quest/
 Open this file in your browser:
 
 ```text
-index.html
+tiny-pirate-quest-game/index.html
 ```
 
 ### Option 2: Use VS Code Live Server
 
 1. Open the project folder in VS Code.
-2. Right-click `index.html`.
+2. Right-click `tiny-pirate-quest-game/index.html`.
 3. Select **Open with Live Server**.
 
 ## Testing
@@ -316,12 +357,19 @@ index.html
 Run the unit tests:
 
 ```bash
-npm test
+npm --prefix tiny-pirate-quest-game test
 ```
 
 Run the syntax check:
 
 ```bash
+npm --prefix tiny-pirate-quest-game run check
+```
+
+From inside `tiny-pirate-quest-game/`, these are equivalent to:
+
+```bash
+npm test
 npm run check
 ```
 
@@ -338,6 +386,13 @@ npm run check
 | Heart HP | HUD hearts update after damage and healing |
 | Dash | Shift moves the player in the last movement direction and stays inside the map |
 | Coin collection | Coins disappear after collection |
+| Crab Patrol | Coconut enemy remains slow, patrols horizontally, and only damages on contact |
+| Fog Spirit | Mist enemy chases only when the player is close, then returns to patrol/cooldown |
+| Fire Imp warning | Volcano enemy flashes before shooting |
+| Fireball projectile | Fireball moves straight, expires/leaves the map cleanly, and damages only on contact |
+| Ghost Minion | Final island spawns slow chasing minions before/during the final boss flow |
+| Enemy melee | `Space` damages normal enemies, shows hit effect, and reduces enemy HP |
+| Enemy reward | Defeated enemies disappear and grant a one-time `+1` wallet coin |
 | Boss spawn | Boss appears after all coins are collected |
 | Boss HP | Boss HP label follows the boss |
 | Battle Panel | Appears only while boss is active and updates boss HP bar |
@@ -358,7 +413,7 @@ npm run check
 | NPC side quests | Collect side items, talk with `E`, and receive reward once |
 | Side quest banner | Quest Panel combines side quest and progress in one line |
 | Boss defeat | Defeat animation plays and route clue appears |
-| Enemy damage | Health decreases with damage cooldown |
+| Enemy damage | Collision and projectile hits decrease hearts with damage cooldown |
 | Lava damage | Health decreases and screen shakes |
 | Route question | Correct answer unlocks island completion |
 | Wrong route answer | Health decreases by 1 |

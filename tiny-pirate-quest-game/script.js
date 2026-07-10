@@ -53,6 +53,8 @@ const upgradeChoices = document.getElementById("upgradeChoices");
 const continueMapButton = document.getElementById("continueMapButton");
 const introOverlay = document.getElementById("introOverlay");
 const startAdventureButton = document.getElementById("startAdventureButton");
+const continueAdventureButton = document.getElementById("continueAdventureButton");
+const continueSaveHint = document.getElementById("continueSaveHint");
 
 const gameWidth = 720;
 const gameHeight = 480;
@@ -71,6 +73,7 @@ const dashDistance = 90;
 const dashCooldownDuration = 2;
 const chestPosition = { x: 626, y: 398 };
 const playerStartPosition = { x: 46, y: 400 };
+const saveKey = "tinyPirateQuestSave";
 
 let player;
 let playerX;
@@ -114,6 +117,7 @@ let finalIslandActive = false;
 let ghostPirateDefeated = false;
 let bossDefeatToken = 0;
 let introActive = true;
+let defeatedEnemyIndexes = [];
 
 const bossBehaviorConfigs = {
   crab: {
@@ -468,9 +472,20 @@ const coinPositions = [
   { x: 405, y: 165 }
 ];
 
-const keys = {};
+const keys = {
+  up: false,
+  down: false,
+  left: false,
+  right: false
+};
 
-function startGame() {
+function startGame(options = {}) {
+  const shouldClearSave = options.clearSave !== false;
+
+  if (shouldClearSave) {
+    clearSavedGame();
+  }
+
   currentLevelIndex = 0;
   mapFragments = 0;
   totalCoins = 0;
@@ -482,21 +497,233 @@ function startGame() {
     progress: 0,
     rewarded: false
   }));
+  defeatedEnemyIndexes = [];
   startLevel();
+  updateContinueControls();
+
+  if (shouldClearSave) {
+    showToast("New adventure started");
+  }
 }
 
 function startAdventure() {
   introActive = false;
   introOverlay.classList.add("hidden");
+  resetMovementKeys();
   syncIntroUiVisibility();
   updateHud("Collect coins to begin your quest.");
+  focusGame();
+  saveGame();
+}
+
+function startNewAdventure() {
+  startGame({ clearSave: true });
+  startAdventure();
+}
+
+function continueAdventure() {
+  const savedState = loadGame();
+
+  if (!savedState) {
+    showToast("No saved game found.");
+    updateContinueControls();
+    return;
+  }
+
+  restoreGameState(savedState);
+  introActive = false;
+  introOverlay.classList.add("hidden");
+  resetMovementKeys();
+  syncIntroUiVisibility();
+  focusGame();
+  showToast("Adventure continued");
+  updateHud("Adventure continued.");
 }
 
 function syncIntroUiVisibility() {
   gameWrap.classList.toggle("pre-start", introActive);
 }
 
-function startLevel() {
+function hasSavedGame() {
+  return Boolean(loadGame());
+}
+
+function loadGame() {
+  try {
+    const rawSave = localStorage.getItem(saveKey);
+    return rawSave ? JSON.parse(rawSave) : null;
+  } catch (error) {
+    return null;
+  }
+}
+
+function clearSavedGame() {
+  try {
+    localStorage.removeItem(saveKey);
+  } catch (error) {
+    // Ignore storage cleanup errors.
+  }
+  updateContinueControls();
+}
+
+function saveGame() {
+  if (introActive) {
+    return;
+  }
+
+  const state = {
+    version: 1,
+    currentLevelIndex,
+    finalIslandActive,
+    player: player ? { x: player.x, y: player.y } : { ...playerStartPosition },
+    health,
+    maxHealth,
+    score,
+    collectedCoinIndexes: coins.map((coin, index) => coin.collected ? index : null).filter((index) => index !== null),
+    totalCoins,
+    mapFragments,
+    crew: [...crew],
+    purchasedUpgrades: [...purchasedUpgrades],
+    sideQuestState: sideQuestState.map((quest) => ({ ...quest })),
+    routeUnlocked,
+    routeQuestionShown,
+    bossActive,
+    bossHp: boss ? boss.hp : null,
+    bossType: boss ? boss.type : null,
+    bossEventStarted,
+    defeatedEnemyIndexes: [...defeatedEnemyIndexes],
+    ghostPirateDefeated,
+    activePowerUpId: null
+  };
+
+  try {
+    localStorage.setItem(saveKey, JSON.stringify(state));
+    updateContinueControls();
+  } catch (error) {
+    // Saving is best-effort so gameplay still works if storage is unavailable.
+  }
+}
+
+function restoreGameState(savedState) {
+  currentLevelIndex = keepInside(savedState.currentLevelIndex || 0, levels.length - 1);
+  finalIslandActive = Boolean(savedState.finalIslandActive);
+  maxHealth = savedState.maxHealth || baseMaxHealth;
+  health = Math.min(savedState.health || maxHealth, maxHealth);
+  totalCoins = savedState.totalCoins || 0;
+  mapFragments = savedState.mapFragments || 0;
+  crew = Array.isArray(savedState.crew) ? [...savedState.crew] : [];
+  purchasedUpgrades = Array.isArray(savedState.purchasedUpgrades) ? [...savedState.purchasedUpgrades] : [];
+  sideQuestState = Array.isArray(savedState.sideQuestState)
+    ? savedState.sideQuestState.map((quest) => ({ ...quest }))
+    : sideQuestConfigs.map((quest) => ({ island: quest.island, progress: 0, rewarded: false }));
+  ghostPirateDefeated = Boolean(savedState.ghostPirateDefeated);
+  activePowerUp = null;
+  powerUpTimer = 0;
+  shieldCharges = 0;
+
+  defeatedEnemyIndexes = Array.isArray(savedState.defeatedEnemyIndexes) ? [...savedState.defeatedEnemyIndexes] : [];
+
+  if (finalIslandActive) {
+    startFinalTreasureIsland({ fromSave: true });
+  } else {
+    startLevel({ fromSave: true });
+  }
+
+  score = savedState.score || 0;
+  health = Math.min(savedState.health || maxHealth, maxHealth);
+  routeUnlocked = Boolean(savedState.routeUnlocked);
+  routeQuestionShown = Boolean(savedState.routeQuestionShown);
+  bossEventStarted = Boolean(savedState.bossEventStarted);
+
+  if (savedState.player) {
+    playerX = keepInside(savedState.player.x || playerStartPosition.x, gameWidth - spriteSize);
+    playerY = keepInside(savedState.player.y || playerStartPosition.y, gameHeight - spriteSize);
+    player.x = playerX;
+    player.y = playerY;
+  }
+
+  if (Array.isArray(savedState.collectedCoinIndexes)) {
+    savedState.collectedCoinIndexes.forEach((index) => {
+      if (coins[index]) {
+        coins[index].collected = true;
+      }
+    });
+  }
+
+  if (routeUnlocked && !finalIslandActive) {
+    chestElement.classList.remove("hidden");
+    chestElement.classList.add("open");
+  } else if (routeQuestionShown && !finalIslandActive) {
+    routeQuestionShown = false;
+    showRouteQuestion(levels[currentLevelIndex]);
+  }
+
+  if (savedState.bossActive && !finalIslandActive) {
+    bossActive = true;
+    createBoss(levels[currentLevelIndex].boss);
+    if (boss && savedState.bossHp !== null) {
+      boss.hp = Math.max(1, savedState.bossHp);
+    }
+  } else if (savedState.bossActive && finalIslandActive && boss) {
+    bossActive = true;
+    if (savedState.bossHp !== null) {
+      boss.hp = Math.max(1, savedState.bossHp);
+    }
+  }
+
+  ghostPirateDefeated = Boolean(savedState.ghostPirateDefeated);
+
+  if (finalIslandActive && ghostPirateDefeated) {
+    bossActive = false;
+    removeBoss();
+    if (grandTreasure && grandTreasure.element) {
+      grandTreasure.element.classList.remove("locked");
+    }
+  }
+
+  clearTemporaryCombatState();
+  gameOver = false;
+  drawSprites();
+}
+
+function updateContinueControls() {
+  let hasSave = false;
+
+  try {
+    hasSave = Boolean(localStorage.getItem(saveKey));
+  } catch (error) {
+    hasSave = false;
+  }
+
+  if (!continueAdventureButton || !continueSaveHint || !startAdventureButton) {
+    return;
+  }
+
+  continueAdventureButton.classList.toggle("hidden", !hasSave);
+  continueSaveHint.classList.toggle("hidden", !hasSave);
+  startAdventureButton.textContent = hasSave ? "Start New Adventure" : "Start Adventure";
+  startAdventureButton.classList.toggle("action-primary", !hasSave);
+  startAdventureButton.classList.toggle("action-secondary", hasSave);
+  continueAdventureButton.classList.toggle("action-primary", hasSave);
+}
+
+function clearTemporaryCombatState() {
+  attackCooldown = 0;
+  dashCooldown = 0;
+  gunCooldown = 0;
+  enemyHitCooldown = 0;
+  clearBullets();
+  clearGhostBullets();
+  clearEnemyProjectiles();
+  clearLavaBursts();
+}
+
+function focusGame() {
+  gameArea.setAttribute("tabindex", "-1");
+  gameArea.focus({ preventScroll: true });
+}
+
+function startLevel(options = {}) {
   const level = levels[currentLevelIndex];
 
   finalIslandActive = false;
@@ -520,6 +747,10 @@ function startLevel() {
   activePowerUp = null;
   powerUpTimer = 0;
   shieldCharges = 0;
+
+  if (!options.fromSave) {
+    defeatedEnemyIndexes = [];
+  }
 
   playerElement.classList.remove("damaged", "dashing");
   gameArea.classList.remove("shake");
@@ -654,6 +885,7 @@ function createCombatEnemies(enemySettings) {
     element.className = index === 0 ? "sprite enemy" : "sprite enemy extra-enemy";
     element.classList.add(`enemy-${settings.type || "crabPatrol"}`);
     element.textContent = settings.icon || behavior.icon;
+    element.style.display = defeatedEnemyIndexes.includes(index) ? "none" : "grid";
 
     if (index > 0) {
       gameArea.appendChild(element);
@@ -666,6 +898,7 @@ function createCombatEnemies(enemySettings) {
       maxHp: settings.hp || behavior.hp,
       hp: settings.hp || behavior.hp,
       baseSpeed: settings.speed || behavior.speed,
+      spawnIndex: index,
       direction: 1,
       state: "patrol",
       stunTimer: 0,
@@ -674,7 +907,7 @@ function createCombatEnemies(enemySettings) {
       warningTimer: 0,
       projectileVector: null,
       rewarded: false,
-      defeated: false,
+      defeated: defeatedEnemyIndexes.includes(index),
       element
     };
   });
@@ -725,9 +958,12 @@ function clearSideQuestObjects() {
   sideQuestItems = [];
 }
 
-function startFinalTreasureIsland() {
+function startFinalTreasureIsland(options = {}) {
   finalIslandActive = true;
-  ghostPirateDefeated = false;
+  if (!options.fromSave) {
+    ghostPirateDefeated = false;
+    defeatedEnemyIndexes = [];
+  }
   currentLevelIndex = levels.length - 1;
   player = { ...playerStartPosition };
   playerX = player.x;
@@ -1106,6 +1342,7 @@ function drawSprites() {
   enemies.forEach((enemy) => {
     enemy.element.style.left = `${enemy.x}px`;
     enemy.element.style.top = `${enemy.y}px`;
+    enemy.element.style.display = enemy.defeated ? "none" : "grid";
   });
 
   coins.forEach((coin) => {
@@ -1182,16 +1419,16 @@ function movePlayer(deltaTime) {
   let moveX = 0;
   let moveY = 0;
 
-  if (keys.arrowup || keys.w) {
+  if (keys.up) {
     moveY -= 1;
   }
-  if (keys.arrowdown || keys.s) {
+  if (keys.down) {
     moveY += 1;
   }
-  if (keys.arrowleft || keys.a) {
+  if (keys.left) {
     moveX -= 1;
   }
-  if (keys.arrowright || keys.d) {
+  if (keys.right) {
     moveX += 1;
   }
 
@@ -1256,13 +1493,13 @@ function getDirectionVector(direction) {
 }
 
 function updateLastDirection(key) {
-  if (key === "arrowup" || key === "w") {
+  if (key === "up" || key === "arrowup" || key === "w") {
     lastDirection = "up";
-  } else if (key === "arrowdown" || key === "s") {
+  } else if (key === "down" || key === "arrowdown" || key === "s") {
     lastDirection = "down";
-  } else if (key === "arrowleft" || key === "a") {
+  } else if (key === "left" || key === "arrowleft" || key === "a") {
     lastDirection = "left";
-  } else if (key === "arrowright" || key === "d") {
+  } else if (key === "right" || key === "arrowright" || key === "d") {
     lastDirection = "right";
   }
 }
@@ -1448,6 +1685,7 @@ function checkCollisions(deltaTime) {
       coin.collected = true;
       score += 1;
       showToast("Coin collected!");
+      saveGame();
       if (score === level.coinCount) {
         startBossEvent(level);
       } else {
@@ -1562,6 +1800,7 @@ function grantSideQuestReward(config, state) {
     totalCoins += 3;
     showToast("Side quest complete! +3 coins");
     updateHud("Shell Scout rewarded you with 3 coins.");
+    saveGame();
     return;
   }
 
@@ -1570,12 +1809,14 @@ function grantSideQuestReward(config, state) {
     health = Math.min(maxHealth, health + 1);
     showToast(health > oldHealth ? "Side quest complete! HP +1" : "Side quest complete!");
     updateHud(health > oldHealth ? "Fog Keeper healed 1 HP." : "Fog Keeper tried to heal you, but HP is full.");
+    saveGame();
     return;
   }
 
   totalCoins += 4;
   showToast("Side quest complete! +4 coins");
   updateHud("Ash Miner says: Lava Beast warns before bursts. Watch the ground!");
+  saveGame();
 }
 
 function startBossEvent(level) {
@@ -1588,6 +1829,7 @@ function startBossEvent(level) {
   createBoss(level.boss);
   showToast("Boss appeared!");
   updateHud(`${level.boss.name} appeared! Press Space near the boss to attack.`);
+  saveGame();
 }
 
 function createBoss(settings) {
@@ -2209,6 +2451,7 @@ function attackBoss() {
   showFloatingText(`-${meleeDamage} HP`, boss.x + 5, boss.y - 10, "damage");
   showToast("Boss hit!");
   updateHud(`${boss.name} hit! Boss HP: ${boss.hp}/${boss.maxHp}`);
+  saveGame();
 
   if (result.defeated) {
     finishBossEvent();
@@ -2244,6 +2487,7 @@ function finishBossEvent() {
     }
 
     updateHud("The Ghost Pirate vanished. The Grand Treasure is unlocked!");
+    saveGame();
 
     setTimeout(() => {
       if (bossDefeatToken === defeatToken && !gameOver) {
@@ -2261,6 +2505,7 @@ function finishBossEvent() {
   }
 
   updateHud(getBossDefeatMessage(level.boss.name));
+  saveGame();
 
   setTimeout(() => {
     if (bossDefeatToken !== defeatToken || gameOver || finalIslandActive) {
@@ -2269,6 +2514,7 @@ function finishBossEvent() {
 
     removeBoss();
     showRouteQuestion(level);
+    saveGame();
   }, 750);
 }
 
@@ -2357,6 +2603,8 @@ function attackRegularEnemy() {
 
   if (target.hp === 0) {
     defeatEnemy(target);
+  } else {
+    saveGame();
   }
 
   return true;
@@ -2403,8 +2651,12 @@ function defeatEnemy(enemy) {
   if (!enemy.rewarded) {
     enemy.rewarded = true;
     totalCoins += enemy.rewardCoins;
+    if (!defeatedEnemyIndexes.includes(enemy.spawnIndex)) {
+      defeatedEnemyIndexes.push(enemy.spawnIndex);
+    }
     showToast(enemy.defeatMessage);
     updateHud(`${enemy.name} defeated! +${enemy.rewardCoins} coin`);
+    saveGame();
   }
 
   setTimeout(() => {
@@ -2525,6 +2777,8 @@ function damageEnemy(enemy, damage, message) {
 
   if (enemy.hp === 0) {
     defeatEnemy(enemy);
+  } else {
+    saveGame();
   }
 }
 
@@ -2539,6 +2793,7 @@ function damageBoss(damage, message) {
   showFloatingText(`-${damage} HP`, boss.x + 5, boss.y - 10, "damage");
   showToast(message);
   updateHud(`${boss.name} hit! Boss HP: ${boss.hp}/${boss.maxHp}`);
+  saveGame();
 
   if (boss.hp === 0) {
     finishBossEvent();
@@ -2680,6 +2935,7 @@ function showRouteQuestion(level) {
   });
 
   routePanel.classList.remove("hidden");
+  resetMovementKeys();
   updateQuestPanel();
 }
 
@@ -2694,6 +2950,8 @@ function answerRouteQuestion(choiceIndex) {
     chestElement.classList.add("open");
     showToast("Route unlocked!");
     updateHud(result.message);
+    saveGame();
+    focusGame();
     completeLevel();
     return;
   }
@@ -2701,10 +2959,13 @@ function answerRouteQuestion(choiceIndex) {
   health = result.health;
   showToast("Wrong answer! HP -1");
   updateHud(result.message);
+  saveGame();
 
   if (health <= 0) {
     routePanel.classList.add("hidden");
     endGame("Game Over", "Wrong answer! The sea path is still hidden.");
+  } else {
+    focusGame();
   }
 }
 
@@ -2725,6 +2986,7 @@ function takeDamage(statusMessage, gameOverMessage, options = {}) {
     activePowerUp = null;
     showToast("Shield blocked damage!");
     updateHud("Shield Fruit blocked the hit!");
+    saveGame();
     return;
   }
 
@@ -2746,6 +3008,7 @@ function takeDamage(statusMessage, gameOverMessage, options = {}) {
 
   showToast("HP -1");
   updateHud(statusMessage);
+  saveGame();
 
   if (result.gameOver) {
     endGame("Game Over", gameOverMessage);
@@ -2792,6 +3055,9 @@ function completeLevel() {
     crewMessage,
     cookMessage
   ].filter(Boolean).join(" "));
+  gameOver = false;
+  saveGame();
+  gameOver = true;
   showUpgradeMenu();
 }
 
@@ -2801,6 +3067,7 @@ function showUpgradeMenu() {
   upgradeMessage.textContent = getUpgradeMenuMessage();
   continueMapButton.textContent = "Open World Map";
   upgradeMenu.classList.remove("hidden");
+  resetMovementKeys();
   updateQuestPanel();
 }
 
@@ -2880,6 +3147,7 @@ function buyUpgrade(upgradeId) {
   upgradeMessage.textContent = `${upgrade.name} applied immediately. Wallet: ${totalCoins} coins.`;
   upgradeWallet.textContent = `Wallet: ${totalCoins} coins`;
   renderUpgradeChoices();
+  saveGame();
 }
 
 function buyHeartPotion(upgrade) {
@@ -2902,6 +3170,7 @@ function buyHeartPotion(upgrade) {
   upgradeMessage.textContent = `Heart Potion restored 1 HP. Wallet: ${totalCoins} coins.`;
   upgradeWallet.textContent = `Wallet: ${totalCoins} coins`;
   renderUpgradeChoices();
+  saveGame();
 }
 
 function applyUpgradeEffect(upgradeId) {
@@ -2913,6 +3182,8 @@ function applyUpgradeEffect(upgradeId) {
 
 function continueToWorldMap() {
   upgradeMenu.classList.add("hidden");
+  resetMovementKeys();
+  saveGame();
   showWorldMap();
 }
 
@@ -2981,6 +3252,7 @@ function showWorldMap() {
   });
 
   worldMap.classList.remove("hidden");
+  resetMovementKeys();
   updateQuestPanel();
 }
 
@@ -3039,14 +3311,18 @@ function selectWorldMapIsland(index) {
   const destination = worldMapRoute[index];
 
   worldMap.classList.add("hidden");
+  resetMovementKeys();
+  saveGame();
   showSailingTransition(destination.name, () => {
     if (index === 3) {
       startFinalTreasureIsland();
+      saveGame();
       return;
     }
 
     currentLevelIndex = index;
     startLevel();
+    saveGame();
   });
 }
 
@@ -3057,6 +3333,7 @@ function showSailingTransition(islandName, onComplete) {
 
   setTimeout(() => {
     sailingOverlay.classList.add("hidden");
+    focusGame();
     onComplete();
   }, 950);
 }
@@ -3066,6 +3343,8 @@ function completeFinalAdventure() {
   finalIslandActive = false;
   removeGrandTreasure();
   overlayAction = "restart";
+  clearSavedGame();
+  showToast("Save cleared");
   endGame(
     "Grand Treasure Found",
     "Congratulations! You found the Grand Treasure and became the Captain of the Tiny Sea! Rewards: Pirate Captain Hat, Golden Compass, Grand Treasure."
@@ -3086,6 +3365,7 @@ function endGame(title, message) {
     overlayRestartButton.textContent = "Restart Game";
   }
   gameOverlay.classList.remove("hidden");
+  resetMovementKeys();
   updateQuestPanel();
 }
 
@@ -3110,40 +3390,78 @@ function isUpgradeMenuOpen() {
   return !upgradeMenu.classList.contains("hidden");
 }
 
+function getMovementDirectionFromCode(code) {
+  if (code === "KeyW" || code === "ArrowUp") {
+    return "up";
+  }
+
+  if (code === "KeyS" || code === "ArrowDown") {
+    return "down";
+  }
+
+  if (code === "KeyA" || code === "ArrowLeft") {
+    return "left";
+  }
+
+  if (code === "KeyD" || code === "ArrowRight") {
+    return "right";
+  }
+
+  return "";
+}
+
+function isGameplayBlocked() {
+  return introActive || gameOver || isRouteQuestionOpen() || isWorldMapOpen() || isUpgradeMenuOpen();
+}
+
+function resetMovementKeys() {
+  keys.up = false;
+  keys.down = false;
+  keys.left = false;
+  keys.right = false;
+}
+
 function gameLoop(currentTime) {
   const deltaTime = lastFrameTime ? (currentTime - lastFrameTime) / 1000 : 0;
+  const safeDeltaTime = Math.min(deltaTime, 0.05);
   lastFrameTime = currentTime;
 
-  if (!introActive && !gameOver && !isRouteQuestionOpen() && !isWorldMapOpen() && !isUpgradeMenuOpen()) {
-    attackCooldown = Math.max(0, attackCooldown - deltaTime);
-    dashCooldown = Math.max(0, dashCooldown - deltaTime);
-    gunCooldown = Math.max(0, gunCooldown - deltaTime);
-    movePlayer(deltaTime);
-    moveEnemies(deltaTime);
-    updatePowerUp(deltaTime);
-    updateBullets(deltaTime);
-    updateEnemyProjectiles(deltaTime);
-    checkCollisions(deltaTime);
-    updateBoss(deltaTime);
+  if (!isGameplayBlocked()) {
+    attackCooldown = Math.max(0, attackCooldown - safeDeltaTime);
+    dashCooldown = Math.max(0, dashCooldown - safeDeltaTime);
+    gunCooldown = Math.max(0, gunCooldown - safeDeltaTime);
+    movePlayer(safeDeltaTime);
+    moveEnemies(safeDeltaTime);
+    updatePowerUp(safeDeltaTime);
+    updateBullets(safeDeltaTime);
+    updateEnemyProjectiles(safeDeltaTime);
+    checkCollisions(safeDeltaTime);
+    updateBoss(safeDeltaTime);
     drawSprites();
+  } else {
+    resetMovementKeys();
   }
 
   requestAnimationFrame(gameLoop);
 }
 
 document.addEventListener("keydown", (event) => {
-  const key = event.key.toLowerCase();
+  const movementDirection = getMovementDirectionFromCode(event.code);
 
-  if (introActive) {
-    if (["arrowup", "arrowdown", "arrowleft", "arrowright", "w", "a", "s", "d", " "].includes(key) || event.key === "Shift") {
-      event.preventDefault();
+  if (movementDirection) {
+    event.preventDefault();
+
+    if (!isGameplayBlocked()) {
+      keys[movementDirection] = true;
+      updateLastDirection(movementDirection);
     }
+
     return;
   }
 
   if (event.key === "Shift") {
     event.preventDefault();
-    if (!event.repeat) {
+    if (!event.repeat && !isGameplayBlocked()) {
       dashPlayer();
     }
     return;
@@ -3151,38 +3469,54 @@ document.addEventListener("keydown", (event) => {
 
   if (event.code === "Space") {
     event.preventDefault();
-    performMeleeAttack();
+    if (!isGameplayBlocked()) {
+      performMeleeAttack();
+    }
     return;
   }
 
+  const key = event.key.toLowerCase();
+
   if (key === "j") {
     event.preventDefault();
-    shootPirateGun();
+    if (!isGameplayBlocked()) {
+      shootPirateGun();
+    }
     return;
   }
 
   if (key === "e") {
     event.preventDefault();
-    interactWithNpc();
+    if (!isGameplayBlocked()) {
+      interactWithNpc();
+    }
     return;
-  }
-
-  if (["arrowup", "arrowdown", "arrowleft", "arrowright", "w", "a", "s", "d"].includes(key)) {
-    event.preventDefault();
-    updateLastDirection(key);
-    keys[key] = true;
   }
 });
 
 document.addEventListener("keyup", (event) => {
-  keys[event.key.toLowerCase()] = false;
+  const movementDirection = getMovementDirectionFromCode(event.code);
+
+  if (movementDirection) {
+    event.preventDefault();
+    keys[movementDirection] = false;
+  }
+});
+
+window.addEventListener("blur", resetMovementKeys);
+document.addEventListener("visibilitychange", () => {
+  if (document.hidden) {
+    resetMovementKeys();
+  }
 });
 
 restartButton.addEventListener("click", startGame);
 overlayRestartButton.addEventListener("click", handleOverlayButton);
 continueMapButton.addEventListener("click", continueToWorldMap);
-startAdventureButton.addEventListener("click", startAdventure);
+startAdventureButton.addEventListener("click", startNewAdventure);
+continueAdventureButton.addEventListener("click", continueAdventure);
 
-startGame();
+startGame({ clearSave: false });
+updateContinueControls();
 gameLoop();
 
