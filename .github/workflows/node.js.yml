@@ -19,12 +19,19 @@ jobs:
   test:
     runs-on: ubuntu-latest
 
+    defaults:
+      run:
+        working-directory: tiny-pirate-quest-game
+
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
+          cache-dependency-path: tiny-pirate-quest-game/package-lock.json
+
       - run: npm ci
       - run: npm run check
       - run: npm test
@@ -33,15 +40,19 @@ jobs:
     if: github.event_name == 'push'
     needs: test
     runs-on: ubuntu-latest
+
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
 
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/configure-pages@v5
+
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: .
+          path: tiny-pirate-quest-game
+
       - id: deployment
         uses: actions/deploy-pages@v4
