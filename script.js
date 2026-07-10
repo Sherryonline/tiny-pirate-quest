@@ -61,11 +61,10 @@ const baseMaxHealth = 3;
 const bossAttackRange = 100;
 const bossAttackThickness = 70;
 const bossLockOnRange = 130;
-const bossStunDuration = 0.8;
 const bossChaseDuration = 3;
-const bossRestDuration = 1;
 const gunCooldownDuration = 0.9;
 const bulletSpeed = 420;
+const ghostBulletSpeed = 250;
 const dashDistance = 90;
 const dashCooldownDuration = 2;
 const chestPosition = { x: 626, y: 398 };
@@ -81,6 +80,7 @@ let mysteryFruit;
 let grandTreasure;
 let coins;
 let bullets = [];
+let ghostBullets = [];
 let npc = null;
 let sideQuestItems = [];
 let lavaBursts = [];
@@ -112,6 +112,63 @@ let ghostPirateDefeated = false;
 let bossDefeatToken = 0;
 let introActive = true;
 
+const bossBehaviorConfigs = {
+  crab: {
+    type: "crab",
+    difficulty: "easy",
+    hp: 5,
+    stunDuration: 0.8,
+    restDuration: 1.1,
+    enragedRestDuration: 0.75,
+    chaseDuration: 3,
+    enragedSpeedBonus: 28,
+    hint: "Dodge the charge, then attack.",
+    chargeCooldown: 2.5,
+    chargeWarning: 0.65,
+    chargeDistance: 132
+  },
+  ghost: {
+    type: "ghost",
+    difficulty: "medium",
+    hp: 7,
+    stunDuration: 0.6,
+    restDuration: 0.9,
+    chaseDuration: 2.7,
+    hint: "Wait for the ghost to reappear, then attack.",
+    fadeCooldown: 3.6,
+    fadeDuration: 1,
+    reformWarning: 0.75
+  },
+  lava: {
+    type: "lava",
+    difficulty: "hard",
+    hp: 9,
+    stunDuration: 0.5,
+    restDuration: 0.7,
+    chaseDuration: 2.4,
+    hint: "Move out of warning zones!",
+    lavaBurstCooldown: 2.6,
+    lavaBurstEnragedCooldown: 2,
+    warningDuration: 0.85,
+    activeDuration: 0.55
+  },
+  ghostPirate: {
+    type: "ghostPirate",
+    difficulty: "final",
+    hp: 12,
+    stunDuration: 0.4,
+    restDuration: 0.6,
+    chaseDuration: 2.2,
+    phaseTwoHp: 6,
+    phaseTwoSpeedBonus: 24,
+    hint: "Dash away from slash warnings and dodge ghost shots.",
+    dashCooldown: 3,
+    dashWarning: 0.75,
+    dashDistance: 150,
+    bulletCooldown: 2.4
+  }
+};
+
 const levelConfig = {
   levels: [
     {
@@ -122,7 +179,7 @@ const levelConfig = {
       question: "Which island sign points to the next sea route?",
       choices: ["Clouds", "Lava", "Fog"],
       correctChoice: 0,
-      boss: { name: "Giant Crab", type: "crab", icon: "\uD83E\uDD80", x: 560, y: 118, speed: 95, hp: 5 },
+      boss: { name: "Giant Crab", type: "crab", icon: "\uD83E\uDD80", x: 560, y: 118, speed: 95 },
       enemies: [{ x: 318, y: 260, minX: 210, maxX: 515, speed: 120 }],
       coinPositions: [
         { x: 95, y: 382 },
@@ -146,7 +203,7 @@ const levelConfig = {
       question: "What should the pirate follow through Mist Island?",
       choices: ["Coconut trees", "Fog", "Volcano smoke"],
       correctChoice: 1,
-      boss: { name: "Fog Ghost", type: "fog", icon: "\uD83D\uDC7B", x: 565, y: 95, speed: 105, hp: 7 },
+      boss: { name: "Fog Ghost", type: "ghost", icon: "\uD83D\uDC7B", x: 565, y: 95, speed: 105 },
       enemies: [
         { x: 190, y: 176, minX: 92, maxX: 360, speed: 135 },
         { x: 512, y: 342, minX: 405, maxX: 658, speed: 150 }
@@ -175,7 +232,7 @@ const levelConfig = {
       question: "What marks the final treasure route?",
       choices: ["Ocean waves", "Coconut leaves", "Volcano smoke"],
       correctChoice: 2,
-      boss: { name: "Lava Beast", type: "lava", icon: "\uD83D\uDD25", x: 548, y: 92, speed: 120, hp: 9 },
+      boss: { name: "Lava Beast", type: "lava", icon: "\uD83D\uDD25", x: 548, y: 92, speed: 120 },
       enemies: [
         { x: 184, y: 170, minX: 92, maxX: 322, speed: 150 },
         { x: 500, y: 326, minX: 405, maxX: 642, speed: 165 }
@@ -261,8 +318,7 @@ const ghostPirateBoss = {
   icon: "☠️",
   x: 540,
   y: 120,
-  speed: 112,
-  hp: 12
+  speed: 112
 };
 
 const sideQuestConfigs = [
@@ -416,6 +472,7 @@ function startLevel() {
   removeMysteryFruit();
   removeGrandTreasure();
   clearBullets();
+  clearGhostBullets();
   clearLavaBursts();
   chestElement.style.left = `${chestPosition.x}px`;
   chestElement.style.top = `${chestPosition.y}px`;
@@ -842,23 +899,27 @@ function getBossPhaseLabel() {
   }
 
   if (boss.invulnerableTimer > 0) {
-    return "Invulnerable";
+    return "Faded";
   }
 
   if (boss.vulnerableWarningTimer > 0) {
-    return "Reforming";
+    return "Faded";
+  }
+
+  if (lavaBursts.some((burst) => burst.state === "active")) {
+    return "Lava Burst";
+  }
+
+  if (lavaBursts.some((burst) => burst.state === "warning")) {
+    return "Charging Lava";
   }
 
   if (boss.type === "crab" && boss.hp <= 2) {
     return "Enraged";
   }
 
-  if (boss.type === "ghostPirate" && boss.hp <= 6) {
+  if (boss.type === "ghostPirate" && boss.hp <= boss.phaseTwoHp) {
     return "Ghost Rage";
-  }
-
-  if (boss.warningAttackTimer > 0 || lavaBursts.some((burst) => burst.state === "warning")) {
-    return "Warning Attack";
   }
 
   return boss.phase === "rest" ? "Resting" : "Chasing";
@@ -870,22 +931,22 @@ function getBattleHintText() {
   }
 
   if (boss.invulnerableTimer > 0) {
-    return "Invulnerable: dodge and wait.";
+    return boss.hint;
   }
 
   if (boss.vulnerableWarningTimer > 0) {
-    return "Warning: attack window soon!";
+    return boss.hint;
   }
 
-  if (boss.warningAttackTimer > 0 || lavaBursts.some((burst) => burst.state === "warning")) {
-    return "Warning attack incoming. Dash clear!";
+  if (boss.warningAttackTimer > 0 || boss.crabChargeWarningTimer > 0 || lavaBursts.some((burst) => burst.state === "warning")) {
+    return boss.hint;
   }
 
   if (boss.stunTimer > 0 || boss.phase === "rest") {
     return "Attack now!";
   }
 
-  return purchasedUpgrades.includes("pirateGun") ? "Dodge, then use Space or J." : "Attack during rest or stun!";
+  return boss.hint || (purchasedUpgrades.includes("pirateGun") ? "Dodge, then use Space or J." : "Attack during rest or stun!");
 }
 
 function showToast(message) {
@@ -1176,6 +1237,14 @@ function checkCollisions(deltaTime) {
     });
   }
 
+  if (enemyHitCooldown === 0 && ghostBullets.some((bullet) => isTouching(player, bullet))) {
+    takeDamage("Ghost shot! Keep moving.", "Ghost fire ended your quest.", {
+      knockbackFrom: boss || player,
+      flash: true,
+      playerDamageText: true
+    });
+  }
+
   if (routeUnlocked && isTouching(player, chestPosition)) {
     completeLevel();
   }
@@ -1255,24 +1324,35 @@ function startBossEvent(level) {
 function createBoss(settings) {
   removeBoss();
 
+  const behavior = bossBehaviorConfigs[settings.type] || {};
   const element = document.createElement("div");
   element.className = "sprite boss";
   element.textContent = settings.icon;
   gameArea.appendChild(element);
 
   boss = {
+    ...behavior,
     ...settings,
-    maxHp: settings.hp,
+    hp: settings.hp || behavior.hp,
+    maxHp: settings.hp || behavior.hp,
     phase: "chase",
-    phaseTimer: bossChaseDuration,
+    phaseTimer: behavior.chaseDuration || bossChaseDuration,
     stunTimer: 0,
     invulnerableTimer: 0,
-    fadeCooldown: settings.type === "fog" ? 2.4 : 0,
+    fadeCooldown: settings.type === "ghost" ? 2.4 : 0,
+    fadeBaseCooldown: behavior.fadeCooldown || 3.6,
     vulnerableWarningTimer: 0,
     warningAttackTimer: 0,
+    crabChargeCooldown: settings.type === "crab" ? 1.8 : 0,
+    crabChargeWarningTimer: 0,
+    crabChargeDirection: 1,
     dashAttackCooldown: settings.type === "ghostPirate" ? 2.6 : 0,
     dashAttackVector: null,
+    ghostBulletCooldown: settings.type === "ghostPirate" ? 2.1 : 0,
     lavaBurstCooldown: settings.type === "lava" ? 2.1 : 0,
+    lavaBurstBaseCooldown: behavior.lavaBurstCooldown || 2.6,
+    enragedAnnounced: false,
+    ghostRageAnnounced: false,
     element
   };
 }
@@ -1284,6 +1364,7 @@ function removeBoss() {
 
   boss = null;
   bossHpLabel.classList.add("hidden");
+  document.querySelectorAll(".crab-charge-warning, .dash-attack-warning, .ghost-reform-warning").forEach((warning) => warning.remove());
   updateBattlePanel();
 }
 
@@ -1319,9 +1400,13 @@ function updateBossTimers(deltaTime) {
     boss.element.classList.add("invulnerable");
 
     if (boss.invulnerableTimer === 0) {
-      boss.vulnerableWarningTimer = 0.7;
+      const reappearPosition = getGhostReappearPosition();
+      boss.x = reappearPosition.x;
+      boss.y = reappearPosition.y;
+      boss.vulnerableWarningTimer = boss.reformWarning;
       boss.element.classList.remove("invulnerable");
       boss.element.classList.add("reforming");
+      showReformWarning();
       showToast("Fog Ghost is reforming!");
     }
 
@@ -1346,25 +1431,37 @@ function updateBossTimers(deltaTime) {
 
   if (boss.phase === "chase") {
     boss.phase = "rest";
-    boss.phaseTimer = bossRestDuration;
+    boss.phaseTimer = getBossRestDuration();
   } else {
     boss.phase = "chase";
-    boss.phaseTimer = bossChaseDuration;
+    boss.phaseTimer = boss.chaseDuration || bossChaseDuration;
   }
 }
 
 function canBossMove() {
-  return boss.stunTimer === 0 && boss.phase === "chase" && boss.invulnerableTimer === 0 && boss.vulnerableWarningTimer === 0;
+  return boss.stunTimer === 0 &&
+    boss.phase === "chase" &&
+    boss.invulnerableTimer === 0 &&
+    boss.vulnerableWarningTimer === 0 &&
+    boss.warningAttackTimer === 0 &&
+    boss.crabChargeWarningTimer === 0;
 }
 
 function updateBossSpecialAttacks(deltaTime) {
   updateLavaBursts(deltaTime);
+  updateGhostBullets(deltaTime);
+
+  updateBossPhaseAnnouncements();
 
   if (!boss || boss.stunTimer > 0 || boss.phase === "rest") {
     return;
   }
 
-  if (boss.type === "fog") {
+  if (boss.type === "crab") {
+    updateCrabCharge(deltaTime);
+  }
+
+  if (boss.type === "ghost") {
     updateFogGhostFade(deltaTime);
   }
 
@@ -1372,8 +1469,37 @@ function updateBossSpecialAttacks(deltaTime) {
     updateLavaBeastBurst(deltaTime);
   }
 
-  if (boss.type === "ghostPirate" && boss.hp <= 6) {
+  if (boss.type === "ghostPirate" && boss.hp <= boss.phaseTwoHp) {
     updateGhostPirateDash(deltaTime);
+    updateGhostPirateBullets(deltaTime);
+  }
+}
+
+function getBossRestDuration() {
+  if (!boss) {
+    return 1;
+  }
+
+  if (boss.type === "crab" && boss.hp <= 2) {
+    return boss.enragedRestDuration;
+  }
+
+  return boss.restDuration || 1;
+}
+
+function updateBossPhaseAnnouncements() {
+  if (!boss) {
+    return;
+  }
+
+  if (boss.type === "crab" && boss.hp <= 2 && !boss.enragedAnnounced) {
+    boss.enragedAnnounced = true;
+    showToast("Boss enraged!");
+  }
+
+  if (boss.type === "ghostPirate" && boss.hp <= boss.phaseTwoHp && !boss.ghostRageAnnounced) {
+    boss.ghostRageAnnounced = true;
+    showToast("Ghost Pirate entered Ghost Rage!");
   }
 }
 
@@ -1388,10 +1514,77 @@ function updateFogGhostFade(deltaTime) {
     return;
   }
 
-  boss.invulnerableTimer = 1;
-  boss.fadeCooldown = 3.2;
+  boss.invulnerableTimer = boss.fadeDuration;
+  boss.fadeCooldown = boss.fadeBaseCooldown;
   boss.element.classList.add("invulnerable");
   showToast("Fog Ghost faded away!");
+}
+
+function getGhostReappearPosition() {
+  const offset = 92;
+  const candidates = [
+    { x: player.x + offset, y: player.y - 42 },
+    { x: player.x - offset, y: player.y + 42 },
+    { x: player.x + 42, y: player.y + offset },
+    { x: player.x - 42, y: player.y - offset }
+  ];
+
+  return candidates
+    .map((candidate) => ({
+      x: keepInside(candidate.x, gameWidth - spriteSize),
+      y: keepInside(candidate.y, gameHeight - spriteSize)
+    }))
+    .find((candidate) => Math.hypot(candidate.x - player.x, candidate.y - player.y) > 64) || {
+      x: keepInside(player.x + offset, gameWidth - spriteSize),
+      y: keepInside(player.y, gameHeight - spriteSize)
+    };
+}
+
+function showReformWarning() {
+  const warning = document.createElement("div");
+  warning.className = "ghost-reform-warning";
+  warning.style.left = `${keepInside(boss.x - 16, gameWidth - 66)}px`;
+  warning.style.top = `${keepInside(boss.y - 16, gameHeight - 66)}px`;
+  gameArea.appendChild(warning);
+  setTimeout(() => warning.remove(), boss.reformWarning * 1000);
+}
+
+function updateCrabCharge(deltaTime) {
+  if (boss.crabChargeWarningTimer > 0) {
+    boss.crabChargeWarningTimer = Math.max(0, boss.crabChargeWarningTimer - deltaTime);
+
+    if (boss.crabChargeWarningTimer === 0) {
+      boss.x = keepInside(boss.x + boss.crabChargeDirection * boss.chargeDistance, gameWidth - spriteSize);
+      boss.element.classList.remove("dash-warning");
+    }
+
+    return;
+  }
+
+  boss.crabChargeCooldown = Math.max(0, boss.crabChargeCooldown - deltaTime);
+
+  if (boss.crabChargeCooldown > 0) {
+    return;
+  }
+
+  boss.crabChargeDirection = player.x >= boss.x ? 1 : -1;
+  boss.crabChargeWarningTimer = boss.chargeWarning;
+  boss.crabChargeCooldown = boss.hp <= 2 ? boss.chargeCooldown * 0.78 : boss.chargeCooldown;
+  boss.element.classList.add("dash-warning");
+  showCrabChargeWarning();
+}
+
+function showCrabChargeWarning() {
+  const warning = document.createElement("div");
+  const warningWidth = Math.min(210, gameWidth - 20);
+  const left = boss.crabChargeDirection > 0 ? boss.x : boss.x - warningWidth + spriteSize;
+
+  warning.className = "crab-charge-warning";
+  warning.style.left = `${keepInside(left, gameWidth - warningWidth)}px`;
+  warning.style.top = `${keepInside(boss.y + spriteSize / 2 - 5, gameHeight - 10)}px`;
+  warning.style.width = `${warningWidth}px`;
+  gameArea.appendChild(warning);
+  setTimeout(() => warning.remove(), boss.chargeWarning * 1000);
 }
 
 function updateLavaBeastBurst(deltaTime) {
@@ -1401,8 +1594,16 @@ function updateLavaBeastBurst(deltaTime) {
     return;
   }
 
-  createLavaBurst(player.x, player.y);
-  boss.lavaBurstCooldown = boss.hp <= 4 ? 2.1 : 2.8;
+  const burstPosition = getLavaBurstPosition();
+  createLavaBurst(burstPosition.x, burstPosition.y);
+
+  if (boss.hp <= 4) {
+    const secondBurst = getLavaBurstPosition({ x: burstPosition.x, y: burstPosition.y });
+    createLavaBurst(secondBurst.x, secondBurst.y);
+  }
+
+  boss.lavaBurstCooldown = boss.hp <= 4 ? boss.lavaBurstEnragedCooldown : boss.lavaBurstBaseCooldown;
+  showToast("Lava burst incoming!");
 }
 
 function createLavaBurst(x, y) {
@@ -1414,9 +1615,37 @@ function createLavaBurst(x, y) {
     x: keepInside(x - 12, gameWidth - 58),
     y: keepInside(y - 12, gameHeight - 58),
     state: "warning",
-    timer: 0.85,
+    timer: boss.warningDuration,
     element
   });
+}
+
+function getLavaBurstPosition(avoidPosition) {
+  const playerCenter = getSpriteCenter(player);
+  const direction = getDirectionVector(lastDirection);
+  const sideStep = direction.x === 0 ? 70 : 0;
+  const verticalStep = direction.y === 0 ? 70 : 0;
+  const candidates = [
+    { x: player.x + direction.x * 82 + sideStep, y: player.y + direction.y * 82 + verticalStep },
+    { x: player.x - direction.x * 82 - sideStep, y: player.y - direction.y * 82 - verticalStep },
+    { x: player.x + 95, y: player.y - 65 },
+    { x: player.x - 95, y: player.y + 65 }
+  ];
+
+  return candidates
+    .map((candidate) => ({
+      x: keepInside(candidate.x, gameWidth - 58),
+      y: keepInside(candidate.y, gameHeight - 58)
+    }))
+    .find((candidate) => {
+      const center = { x: candidate.x + 29, y: candidate.y + 29 };
+      const awayFromPlayer = Math.hypot(center.x - playerCenter.x, center.y - playerCenter.y) > 58;
+      const awayFromFirst = !avoidPosition || Math.hypot(candidate.x - avoidPosition.x, candidate.y - avoidPosition.y) > 72;
+      return awayFromPlayer && awayFromFirst;
+    }) || {
+      x: keepInside(player.x + 92, gameWidth - 58),
+      y: keepInside(player.y, gameHeight - 58)
+    };
 }
 
 function updateLavaBursts(deltaTime) {
@@ -1429,7 +1658,7 @@ function updateLavaBursts(deltaTime) {
 
     if (burst.state === "warning") {
       burst.state = "active";
-      burst.timer = 0.55;
+      burst.timer = boss ? boss.activeDuration : 0.55;
       burst.element.classList.remove("warning");
       burst.element.classList.add("active");
       return;
@@ -1452,8 +1681,8 @@ function updateGhostPirateDash(deltaTime) {
     boss.warningAttackTimer = Math.max(0, boss.warningAttackTimer - deltaTime);
 
     if (boss.warningAttackTimer === 0 && boss.dashAttackVector) {
-      boss.x = keepInside(boss.x + boss.dashAttackVector.x * 145, gameWidth - spriteSize);
-      boss.y = keepInside(boss.y + boss.dashAttackVector.y * 145, gameHeight - spriteSize);
+      boss.x = keepInside(boss.x + boss.dashAttackVector.x * boss.dashDistance, gameWidth - spriteSize);
+      boss.y = keepInside(boss.y + boss.dashAttackVector.y * boss.dashDistance, gameHeight - spriteSize);
       boss.dashAttackVector = null;
       boss.element.classList.remove("dash-warning");
     }
@@ -1472,8 +1701,8 @@ function updateGhostPirateDash(deltaTime) {
   const distance = Math.hypot(dx, dy) || 1;
 
   boss.dashAttackVector = { x: dx / distance, y: dy / distance };
-  boss.warningAttackTimer = 0.75;
-  boss.dashAttackCooldown = 3.1;
+  boss.warningAttackTimer = boss.dashWarning;
+  boss.dashAttackCooldown = boss.dashCooldown;
   boss.element.classList.add("dash-warning");
   showBossDashWarning();
 }
@@ -1484,7 +1713,60 @@ function showBossDashWarning() {
   warning.style.left = `${keepInside(player.x - 22, gameWidth - 78)}px`;
   warning.style.top = `${keepInside(player.y - 22, gameHeight - 78)}px`;
   gameArea.appendChild(warning);
-  setTimeout(() => warning.remove(), 760);
+  setTimeout(() => warning.remove(), boss.dashWarning * 1000);
+}
+
+function updateGhostPirateBullets(deltaTime) {
+  boss.ghostBulletCooldown = Math.max(0, boss.ghostBulletCooldown - deltaTime);
+
+  if (boss.ghostBulletCooldown > 0) {
+    return;
+  }
+
+  const dx = player.x - boss.x;
+  const dy = player.y - boss.y;
+  const distance = Math.hypot(dx, dy) || 1;
+
+  createGhostBullet(dx / distance, dy / distance);
+  boss.ghostBulletCooldown = boss.bulletCooldown;
+}
+
+function createGhostBullet(dx, dy) {
+  const element = document.createElement("div");
+  element.className = "ghost-bullet";
+  element.textContent = "•";
+  gameArea.appendChild(element);
+
+  ghostBullets.push({
+    x: boss.x + spriteSize / 2 - 6,
+    y: boss.y + spriteSize / 2 - 6,
+    dx,
+    dy,
+    element
+  });
+}
+
+function updateGhostBullets(deltaTime) {
+  ghostBullets.forEach((bullet) => {
+    bullet.x += bullet.dx * ghostBulletSpeed * deltaTime;
+    bullet.y += bullet.dy * ghostBulletSpeed * deltaTime;
+    bullet.element.style.left = `${bullet.x}px`;
+    bullet.element.style.top = `${bullet.y}px`;
+
+    if (bullet.x < -18 || bullet.x > gameWidth + 18 || bullet.y < -18 || bullet.y > gameHeight + 18) {
+      bullet.done = true;
+    }
+  });
+
+  ghostBullets
+    .filter((bullet) => bullet.done)
+    .forEach((bullet) => bullet.element.remove());
+  ghostBullets = ghostBullets.filter((bullet) => !bullet.done);
+}
+
+function clearGhostBullets() {
+  ghostBullets.forEach((bullet) => bullet.element.remove());
+  ghostBullets = [];
 }
 
 function getBossFightStatus() {
@@ -1500,7 +1782,7 @@ function getBossFightStatus() {
     return `${boss.name} is about to become attackable again.`;
   }
 
-  if (boss.warningAttackTimer > 0 || lavaBursts.some((burst) => burst.state === "warning")) {
+  if (boss.warningAttackTimer > 0 || boss.crabChargeWarningTimer > 0 || lavaBursts.some((burst) => burst.state === "warning")) {
     return "Warning attack incoming! Dash out of the marked zone.";
   }
 
@@ -1526,11 +1808,11 @@ function getBossSpeed() {
   }
 
   if (boss.type === "crab" && boss.hp <= 2) {
-    return boss.speed + 28;
+    return boss.speed + boss.enragedSpeedBonus;
   }
 
-  if (boss.type === "ghostPirate" && boss.hp <= 6) {
-    return boss.speed + 18;
+  if (boss.type === "ghostPirate" && boss.hp <= boss.phaseTwoHp) {
+    return boss.speed + boss.phaseTwoSpeedBonus;
   }
 
   return boss.speed;
@@ -1606,7 +1888,7 @@ function attackBoss() {
   }
 
   boss.hp = result.bossHp;
-  boss.stunTimer = bossStunDuration;
+  boss.stunTimer = boss.stunDuration;
   playBossHitEffect();
   showFloatingText(`-${meleeDamage} HP`, boss.x + 5, boss.y - 10, "damage");
   showToast("Boss hit!");
@@ -1629,10 +1911,12 @@ function finishBossEvent() {
   bossDefeatToken = defeatToken;
   bossActive = false;
   attackCooldown = 0;
+  clearGhostBullets();
+  clearLavaBursts();
 
   if (finalIslandActive && defeatedBoss && defeatedBoss.type === "ghostPirate") {
     ghostPirateDefeated = true;
-    showToast("Ghost Pirate defeated!");
+    showToast("Boss defeated!");
 
     if (defeatedBoss.element) {
       defeatedBoss.element.classList.add("defeated");
@@ -1761,7 +2045,7 @@ function damageBoss(damage, message) {
   }
 
   boss.hp = Math.max(0, boss.hp - damage);
-  boss.stunTimer = bossStunDuration;
+  boss.stunTimer = boss.stunDuration;
   playBossHitEffect();
   showFloatingText(`-${damage} HP`, boss.x + 5, boss.y - 10, "damage");
   showToast(message);

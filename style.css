@@ -614,6 +614,46 @@ h1 {
   animation: warning-pulse 0.25s linear infinite alternate;
 }
 
+.crab-charge-warning {
+  position: absolute;
+  z-index: 4;
+  height: 10px;
+  pointer-events: none;
+  border: 2px solid rgba(255, 238, 91, 0.95);
+  border-radius: 999px;
+  background: rgba(255, 112, 40, 0.22);
+  box-shadow: 0 0 12px rgba(255, 202, 78, 0.78);
+  animation: warning-pulse 0.22s linear infinite alternate;
+}
+
+.ghost-reform-warning {
+  position: absolute;
+  z-index: 4;
+  width: 66px;
+  height: 66px;
+  pointer-events: none;
+  border: 3px dashed rgba(209, 244, 255, 0.95);
+  border-radius: 50%;
+  background: rgba(164, 221, 255, 0.18);
+  box-shadow: 0 0 18px rgba(204, 244, 255, 0.75);
+  animation: warning-pulse 0.24s linear infinite alternate;
+}
+
+.ghost-bullet {
+  position: absolute;
+  z-index: 4;
+  display: grid;
+  width: 14px;
+  height: 14px;
+  place-items: center;
+  pointer-events: none;
+  color: #f7fbff;
+  font-size: 18px;
+  line-height: 1;
+  text-shadow: 0 0 8px rgba(128, 215, 255, 0.95);
+  filter: drop-shadow(0 0 6px rgba(117, 191, 255, 0.9));
+}
+
 .hp-label {
   position: absolute;
   z-index: 6;
