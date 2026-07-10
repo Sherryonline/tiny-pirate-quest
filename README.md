@@ -30,8 +30,8 @@ You are a tiny pirate searching for the lost treasure of the Tiny Sea. Explore i
 - Shift dash with cooldown
 - Story intro overlay before gameplay starts
 - Beginner control guide on first load
-- Quest Panel with island, objective, coin progress, fragments, and next hint
-- Quest Panel support for side quest, side progress, wallet, and next action
+- Compact top HUD with hearts, wallet coins, map fragments, crew, and active fruit
+- Compact Quest Panel with island, main quest, coin progress, combined side quest progress, next action, and hint
 - Battle Panel during boss fights with boss name, HP bar, phase, faded/enraged/lava/ghost-rage states, and attack hints
 - Heart health GUI in the HUD
 - Three main islands with different rules and visuals
@@ -97,15 +97,36 @@ You are a tiny pirate searching for the lost treasure of the Tiny Sea. Explore i
 
 ## GUI Panels
 
+### Top HUD
+
+The top HUD is a compact quick stats bar. It uses icons and short values for:
+
+- Hearts
+- Wallet coins
+- Map fragments
+- Crew
+- Active fruit
+
+The top HUD does not show objective text, status messages, collected coin objectives, next action, or hints. Those belong in the Quest Panel or modal overlays.
+
 ### Quest Panel
 
-The Quest Panel shows the current island, main objective, coin progress, collected map fragments, side quest objective, side quest progress, wallet, next action, and hint.
+The Quest Panel is a compact two-row gameplay banner aligned with the game area. It focuses on current guidance only:
+
+- Island
+- Main Quest
+- Coins collected / required coins
+- Side Quest with progress, such as `Collect 3 shells — 1/3`
+- Next Action
+- Hint
+
+The Quest Panel does not duplicate wallet coins or map fragments because those are already in the top HUD. It hides while the story intro, shop, route clue, world map, or game over overlay is open so it does not compete with modal UI.
 
 Example objectives:
 
 - Collect all coins
-- Boss appeared! Defeat the boss
-- Solve the route clue
+- Defeat the boss
+- Solve route clue
 - Buy upgrades or continue
 - Sail to next island
 - Open the Grand Treasure
@@ -128,7 +149,7 @@ Boss phases shown in the panel:
 
 ### Heart Health
 
-The HUD shows player health as heart icons. One heart equals one current HP, and the display supports higher max health from Reinforced Hull.
+The top HUD shows player health as heart icons. One heart equals one current HP, and the display supports higher max health from Reinforced Hull.
 
 The existing HP label still follows the player inside the game area.
 
@@ -313,6 +334,7 @@ npm run check
 | Boundary | Player cannot move outside the game area |
 | Larger map | Game area displays as 720px x 480px |
 | Player HP | HP label follows the player |
+| Compact HUD | Top bar shows only hearts, wallet coins, map fragments, crew, and active fruit |
 | Heart HP | HUD hearts update after damage and healing |
 | Dash | Shift moves the player in the last movement direction and stays inside the map |
 | Coin collection | Coins disappear after collection |
@@ -334,13 +356,15 @@ npm run check
 | Heart Potion | Heals 1 HP, never exceeds max HP, and warns when HP is full |
 | Ship transition | World Map selection shows Sailing to island message before loading |
 | NPC side quests | Collect side items, talk with `E`, and receive reward once |
+| Side quest banner | Quest Panel combines side quest and progress in one line |
 | Boss defeat | Defeat animation plays and route clue appears |
 | Enemy damage | Health decreases with damage cooldown |
 | Lava damage | Health decreases and screen shakes |
 | Route question | Correct answer unlocks island completion |
 | Wrong route answer | Health decreases by 1 |
 | World Map | Next island unlocks after island completion |
-| Quest Panel | Objective and hint update across coins, boss, clue, shop, map, and final island |
+| Quest Panel | Objective and hint update across coins, boss, and final island |
+| Quest Panel overlays | Quest Panel hides during intro, shop, route clue, world map, and game over overlays |
 | Upgrades | Purchased upgrades apply immediately |
 | Shop Wallet | Upgrade menu shows wallet, prices, effects, and owned state |
 | Toasts | Key events show short temporary messages |
