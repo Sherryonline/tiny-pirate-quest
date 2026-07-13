@@ -1064,6 +1064,24 @@ h1 {
   animation: boss-hit 0.36s linear;
 }
 
+.enemy.weakness-hit {
+  filter: drop-shadow(0 0 11px #fff07a) saturate(1.7);
+}
+
+.weakness-impact {
+  position: absolute;
+  z-index: 9;
+  display: grid;
+  width: 50px;
+  height: 50px;
+  place-items: center;
+  color: #fff07a;
+  font-size: 30px;
+  pointer-events: none;
+  text-shadow: 0 0 8px #ff8a24;
+  animation: weakness-impact 0.48s ease-out forwards;
+}
+
 .enemy.warning {
   animation: warning-pulse 0.22s linear infinite alternate;
   filter: drop-shadow(0 0 9px rgba(255, 230, 90, 0.9)) saturate(1.45);
@@ -1364,6 +1382,11 @@ h1 {
 .floating-text.combo {
   color: #fff07a;
   font-size: 16px;
+}
+
+.floating-text.weakness {
+  color: #fff07a;
+  font-size: 15px;
 }
 
 .grand-treasure.locked {
@@ -2092,6 +2115,17 @@ button:hover {
   45% {
     filter: drop-shadow(0 0 14px #fff07a) saturate(1.4);
     transform: scale(1.14);
+  }
+}
+
+@keyframes weakness-impact {
+  from {
+    opacity: 1;
+    transform: scale(0.35) rotate(0deg);
+  }
+  to {
+    opacity: 0;
+    transform: scale(1.35) rotate(35deg);
   }
 }
 

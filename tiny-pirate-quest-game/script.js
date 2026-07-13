@@ -457,6 +457,9 @@ function playSound(name) {
   } else if (name === "combo") {
     playTone(700, 0.06, "triangle", 0.08, 940);
     setTimeout(() => playTone(1040, 0.08, "sine", 0.07), 55);
+  } else if (name === "weakness") {
+    playTone(620, 0.06, "square", 0.08, 880);
+    setTimeout(() => playTone(1240, 0.1, "sine", 0.08), 60);
   } else if (name === "bossWarning") {
     playTone(170, 0.12, "triangle", 0.1);
     setTimeout(() => playTone(130, 0.14, "triangle", 0.1), 130);
@@ -750,6 +753,26 @@ const enemyBehaviorConfigs = {
     chaseDuration: 2.4,
     cooldownDuration: 0.8,
     behavior: "chase"
+  }
+};
+
+const enemyWeaknessConfigs = {
+  crabPatrol: {
+    weakness: "swordFlame",
+    hint: "Crab Patrols are weak to Sword Flame."
+  },
+  fogSpirit: {
+    weakness: "focus",
+    contactWeakness: "shield",
+    hint: "Fog Spirits are weak to Focus; shields stun them on contact."
+  },
+  fireImp: {
+    weakness: "pirateGun",
+    hint: "Fire Imps are weak to Pirate Gun shots."
+  },
+  ghostMinion: {
+    weakness: "swordCombo",
+    hint: "Ghost Minions are weak to sword combos at x2 or higher."
   }
 };
 
@@ -2004,6 +2027,10 @@ function getQuestHint() {
   }
 
   if (finalIslandActive) {
+    const weaknessHint = getCurrentEnemyWeaknessHint();
+    if (weaknessHint) {
+      return weaknessHint;
+    }
     return ghostPirateDefeated
       ? "Open the Grand Treasure."
       : "Dash away from warning attacks.";
@@ -2025,11 +2052,22 @@ function getQuestHint() {
     return "Attack during rest or stun.";
   }
 
+  const weaknessHint = getCurrentEnemyWeaknessHint();
+  if (weaknessHint) {
+    return weaknessHint;
+  }
+
   if (score < levels[currentLevelIndex].coinCount) {
     return "Collect coins to summon boss.";
   }
 
   return "Follow the next action.";
+}
+
+function getCurrentEnemyWeaknessHint() {
+  const enemy = enemies.find((item) => !item.defeated);
+  const config = enemy ? enemyWeaknessConfigs[enemy.type] : null;
+  return config ? config.hint : "";
 }
 
 function getNextActionText() {
@@ -2630,11 +2668,18 @@ function checkRegularEnemyDamage() {
     return;
   }
 
-  takeDamage(touchedEnemy.damageMessage, `${touchedEnemy.name} ended your quest.`, {
+  const damageResult = takeDamage(touchedEnemy.damageMessage, `${touchedEnemy.name} ended your quest.`, {
     knockbackFrom: touchedEnemy,
     flash: true,
     playerDamageText: true
   });
+
+  const weaknessConfig = enemyWeaknessConfigs[touchedEnemy.type];
+  if (weaknessConfig && weaknessConfig.contactWeakness === "shield" && damageResult && damageResult.blocked) {
+    touchedEnemy.stunTimer = Math.max(touchedEnemy.stunTimer, 0.8);
+    touchedEnemy.state = "stunned";
+    showEnemyWeaknessHit(touchedEnemy);
+  }
 }
 
 function checkEnemyProjectileDamage() {
@@ -3544,7 +3589,8 @@ function attackRegularEnemy() {
   const attackDirection = lastDirection;
   const meleeRange = purchasedUpgrades.includes("sharpSword") ? bossAttackRange + 22 : bossAttackRange;
   const meleeThickness = purchasedUpgrades.includes("sharpSword") ? bossAttackThickness + 16 : bossAttackThickness;
-  const meleeDamage = getMeleeDamage() + getComboDamageBonusForNextHit();
+  const weaknessBonus = getEnemyWeaknessBonus(target, "sword");
+  const meleeDamage = getMeleeDamage() + getComboDamageBonusForNextHit() + weaknessBonus;
   const attackArea = GameLogic.getAttackArea(player, attackDirection, {
     spriteSize,
     range: meleeRange,
@@ -3571,6 +3617,9 @@ function attackRegularEnemy() {
   target.element.classList.add("hit");
   showSlashEffect(attackArea, attackDirection);
   showFloatingText(`-${meleeDamage} HP`, target.x + 2, target.y - 10, "damage");
+  if (weaknessBonus > 0) {
+    showEnemyWeaknessHit(target);
+  }
   showToast("Enemy hit!");
 
   setTimeout(() => {
@@ -3923,14 +3972,19 @@ function clearBullets() {
   bullets = [];
 }
 
-function damageEnemy(enemy, damage, message) {
+function damageEnemy(enemy, damage, message, attackType = "gun") {
+  const weaknessBonus = getEnemyWeaknessBonus(enemy, attackType);
+  const totalDamage = damage + weaknessBonus;
   registerComboHit();
-  enemy.hp = Math.max(0, enemy.hp - damage);
+  enemy.hp = Math.max(0, enemy.hp - totalDamage);
   enemy.stunTimer = 0.35;
   enemy.element.classList.remove("hit");
   void enemy.element.offsetWidth;
   enemy.element.classList.add("hit");
-  showFloatingText(`-${damage} HP`, enemy.x + 2, enemy.y - 10, "damage");
+  showFloatingText(`-${totalDamage} HP`, enemy.x + 2, enemy.y - 10, "damage");
+  if (weaknessBonus > 0) {
+    showEnemyWeaknessHit(enemy);
+  }
   showToast(message || "Enemy hit!");
 
   setTimeout(() => {
@@ -4003,6 +4057,43 @@ function getPlayerSpeed() {
 
 function getMeleeDamage() {
   return (purchasedUpgrades.includes("sharpSword") ? 2 : 1) + (rewardSkillTimers.sword > 0 ? 1 : 0);
+}
+
+function getEnemyWeaknessBonus(enemy, attackType) {
+  const config = enemyWeaknessConfigs[enemy.type];
+
+  if (!config) {
+    return 0;
+  }
+
+  return GameLogic.getEnemyWeaknessBonus(config.weakness, {
+    attackType,
+    swordFlameActive: rewardSkillTimers.sword > 0,
+    focusActive: rewardSkillTimers.focus > 0,
+    comboCount: comboState.timer > 0 ? comboState.count : 0
+  });
+}
+
+function showEnemyWeaknessHit(enemy) {
+  const impact = document.createElement("div");
+
+  enemy.element.classList.remove("weakness-hit");
+  void enemy.element.offsetWidth;
+  enemy.element.classList.add("weakness-hit");
+  impact.className = "weakness-impact";
+  impact.textContent = "\u2726";
+  impact.style.left = `${keepInside(enemy.x - 8, gameWidth - 50)}px`;
+  impact.style.top = `${keepInside(enemy.y - 8, gameHeight - 50)}px`;
+  gameArea.appendChild(impact);
+  showFloatingText("Weakness Hit!", enemy.x - 18, enemy.y - 27, "weakness");
+  AudioManager.playSound("weakness");
+  setTimeout(() => impact.remove(), 500);
+
+  setTimeout(() => {
+    if (enemy.element) {
+      enemy.element.classList.remove("weakness-hit");
+    }
+  }, 480);
 }
 
 function getComboDamageBonusForNextHit() {
@@ -4241,7 +4332,7 @@ function takeDamage(statusMessage, gameOverMessage, options = {}) {
     showToast("Shield blocked damage!");
     updateHud("Your shield blocked the hit!");
     saveGame();
-    return;
+    return result;
   }
 
   resetCombo();
@@ -4270,6 +4361,8 @@ function takeDamage(statusMessage, gameOverMessage, options = {}) {
   if (result.gameOver) {
     endGame("Game Over", gameOverMessage);
   }
+
+  return result;
 }
 
 function flashPlayer() {

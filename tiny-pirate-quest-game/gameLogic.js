@@ -181,6 +181,26 @@
     };
   }
 
+  function getEnemyWeaknessBonus(weakness, attackContext) {
+    if (weakness === "swordFlame") {
+      return attackContext.attackType === "sword" && attackContext.swordFlameActive ? 1 : 0;
+    }
+
+    if (weakness === "focus") {
+      return attackContext.focusActive ? 1 : 0;
+    }
+
+    if (weakness === "pirateGun") {
+      return attackContext.attackType === "gun" ? 1 : 0;
+    }
+
+    if (weakness === "swordCombo") {
+      return attackContext.attackType === "sword" && attackContext.comboCount >= 2 ? 1 : 0;
+    }
+
+    return 0;
+  }
+
   function getPlayerSpeed(baseSpeed, hasStrongSail, activePowerUpId) {
     let speed = hasStrongSail ? baseSpeed + 45 : baseSpeed;
 
@@ -388,6 +408,7 @@
     updateComboState,
     resetComboState,
     consumeComboBonus,
+    getEnemyWeaknessBonus,
     getPlayerSpeed,
     getBuffedCooldown,
     buyUpgrade,

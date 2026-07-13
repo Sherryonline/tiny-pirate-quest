@@ -153,6 +153,33 @@ test("combo bonus coin readiness is consumed once", () => {
   assert.equal(secondClaim.shouldDrop, false);
 });
 
+test("normal enemy weaknesses grant exactly one bonus damage", () => {
+  assert.equal(GameLogic.getEnemyWeaknessBonus("swordFlame", {
+    attackType: "sword", swordFlameActive: true, focusActive: false, comboCount: 0
+  }), 1);
+  assert.equal(GameLogic.getEnemyWeaknessBonus("focus", {
+    attackType: "sword", swordFlameActive: false, focusActive: true, comboCount: 0
+  }), 1);
+  assert.equal(GameLogic.getEnemyWeaknessBonus("pirateGun", {
+    attackType: "gun", swordFlameActive: false, focusActive: false, comboCount: 0
+  }), 1);
+  assert.equal(GameLogic.getEnemyWeaknessBonus("swordCombo", {
+    attackType: "sword", swordFlameActive: false, focusActive: false, comboCount: 2
+  }), 1);
+});
+
+test("non-weak attacks keep normal enemy damage", () => {
+  assert.equal(GameLogic.getEnemyWeaknessBonus("swordFlame", {
+    attackType: "gun", swordFlameActive: true, focusActive: false, comboCount: 0
+  }), 0);
+  assert.equal(GameLogic.getEnemyWeaknessBonus("pirateGun", {
+    attackType: "sword", swordFlameActive: false, focusActive: false, comboCount: 3
+  }), 0);
+  assert.equal(GameLogic.getEnemyWeaknessBonus("swordCombo", {
+    attackType: "sword", swordFlameActive: false, focusActive: false, comboCount: 1
+  }), 0);
+});
+
 test("upgrades require enough coins and apply once", () => {
   const strongSail = { id: "strongSail", cost: 8 };
 
