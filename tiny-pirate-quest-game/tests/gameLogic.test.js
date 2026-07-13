@@ -172,3 +172,34 @@ test("boss attack uses directional attack area", () => {
   assert.equal(GameLogic.attackBoss(player, { x: 55, y: 50, hp: 2 }, { ...options, direction: "up" }).reason, "hit");
   assert.equal(GameLogic.attackBoss(player, { x: 145, y: 160, hp: 2 }, { ...options, direction: "down" }).reason, "hit");
 });
+
+test("pirate names are trimmed, limited, and defaulted", () => {
+  assert.equal(GameLogic.sanitizePirateName("  Captain Sherry  ", 20), "Captain Sherry");
+  assert.equal(GameLogic.sanitizePirateName("", 20), "Tiny Pirate");
+  assert.equal(GameLogic.sanitizePirateName("1234567890123456789012345", 20), "12345678901234567890");
+});
+
+test("leaderboard ranks coins first and latest completion second", () => {
+  const records = [
+    { playerName: "Older", coins: 20, completedAt: "2026-07-09T10:00:00.000Z" },
+    { playerName: "Most Coins", coins: 30, completedAt: "2026-07-08T10:00:00.000Z" },
+    { playerName: "Newer", coins: 20, completedAt: "2026-07-10T10:00:00.000Z" }
+  ];
+
+  assert.deepEqual(
+    GameLogic.sortLeaderboardRecords(records).map((record) => record.playerName),
+    ["Most Coins", "Newer", "Older"]
+  );
+});
+
+test("leaderboard stores only the top five records", () => {
+  const records = Array.from({ length: 7 }, (_, index) => ({
+    playerName: `Pirate ${index + 1}`,
+    coins: index + 1,
+    completedAt: `2026-07-${String(index + 1).padStart(2, "0")}T10:00:00.000Z`
+  }));
+  const topFive = GameLogic.getTopLeaderboard(records, 5);
+
+  assert.equal(topFive.length, 5);
+  assert.deepEqual(topFive.map((record) => record.coins), [7, 6, 5, 4, 3]);
+});

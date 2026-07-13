@@ -202,6 +202,30 @@
     };
   }
 
+  function sanitizePirateName(value, maxLength) {
+    const limit = Number.isFinite(maxLength) ? maxLength : 20;
+    const trimmedName = String(value || "").trim().slice(0, limit);
+    return trimmedName || "Tiny Pirate";
+  }
+
+  function sortLeaderboardRecords(records) {
+    return [...records].sort((first, second) => {
+      const firstCoins = Number(first.coins) || 0;
+      const secondCoins = Number(second.coins) || 0;
+
+      if (secondCoins !== firstCoins) {
+        return secondCoins - firstCoins;
+      }
+
+      return new Date(second.completedAt).getTime() - new Date(first.completedAt).getTime();
+    });
+  }
+
+  function getTopLeaderboard(records, limit) {
+    const recordLimit = Number.isFinite(limit) ? limit : 5;
+    return sortLeaderboardRecords(records).slice(0, recordLimit);
+  }
+
   return {
     isTouching,
     keepInside,
@@ -214,6 +238,9 @@
     getNextIslandName,
     applyCookHeal,
     getAttackArea,
-    attackBoss
+    attackBoss,
+    sanitizePirateName,
+    sortLeaderboardRecords,
+    getTopLeaderboard
   };
 });

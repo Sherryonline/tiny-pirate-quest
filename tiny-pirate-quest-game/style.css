@@ -1470,6 +1470,171 @@ h1 {
   font-size: 18px;
 }
 
+.hall-of-fame-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 40;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+  color: #24311f;
+  background: rgba(20, 28, 24, 0.84);
+  backdrop-filter: blur(2px);
+}
+
+.hall-of-fame-overlay.hidden,
+.hall-completion-section.hidden,
+.hall-leaderboard-section.hidden,
+.hall-of-fame-actions.hidden,
+.hall-close-button.hidden,
+.hall-empty-message.hidden,
+.hall-leaderboard-table.hidden {
+  display: none;
+}
+
+.hall-of-fame-card {
+  position: relative;
+  width: min(650px, 100%);
+  max-height: calc(100% - 8px);
+  overflow-y: auto;
+  padding: 20px;
+  background: #fff3c4;
+  border: 4px solid #8b5a2b;
+  border-radius: 8px;
+  box-shadow: 0 8px 0 rgba(0, 0, 0, 0.22);
+}
+
+.hall-of-fame-card h2 {
+  margin: 0 36px 14px;
+  color: #72522b;
+  font-size: 26px;
+  text-align: center;
+}
+
+.hall-close-button {
+  position: absolute;
+  top: 9px;
+  right: 10px;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  color: #72522b;
+  font-size: 24px;
+  line-height: 1;
+  background: #f7e7a8;
+  border: 2px solid #8b5a2b;
+}
+
+.hall-completion-section {
+  display: grid;
+  gap: 10px;
+  text-align: left;
+}
+
+.hall-victory-message {
+  margin: 0;
+  padding: 12px;
+  color: #4d3920;
+  font-size: 16px;
+  font-weight: bold;
+  line-height: 1.4;
+  text-align: center;
+  background: #f7e7a8;
+  border: 2px solid rgba(139, 90, 43, 0.72);
+  border-radius: 8px;
+}
+
+.hall-completion-section label {
+  font-weight: bold;
+}
+
+.hall-completion-section input {
+  width: 100%;
+  padding: 10px 12px;
+  color: #24311f;
+  font: inherit;
+  background: #fffdf1;
+  border: 2px solid #8b5a2b;
+  border-radius: 6px;
+}
+
+.hall-leaderboard-section {
+  display: grid;
+  gap: 10px;
+}
+
+.hall-empty-message {
+  margin: 0;
+  padding: 16px;
+  color: #72522b;
+  font-weight: bold;
+  text-align: center;
+  background: #f7e7a8;
+  border-radius: 8px;
+}
+
+.hall-leaderboard-table {
+  overflow: hidden;
+  border: 2px solid #8b5a2b;
+  border-radius: 8px;
+}
+
+.hall-table-header,
+.hall-leaderboard-row {
+  display: grid;
+  grid-template-columns: 62px minmax(120px, 1.3fr) minmax(120px, 1fr) 80px;
+  gap: 8px;
+  align-items: center;
+  padding: 8px 10px;
+  text-align: left;
+}
+
+.hall-table-header {
+  color: #fff3c4;
+  font-size: 12px;
+  font-weight: bold;
+  background: #72522b;
+}
+
+.hall-leaderboard-row {
+  min-height: 44px;
+  background: #fff8dc;
+  border-top: 1px solid rgba(139, 90, 43, 0.35);
+}
+
+.hall-leaderboard-row:nth-child(even) {
+  background: #f7e7a8;
+}
+
+.hall-rank {
+  font-size: 20px;
+  font-weight: bold;
+  text-align: center;
+}
+
+.hall-player-name {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-weight: bold;
+}
+
+.hall-date,
+.hall-coins {
+  font-size: 13px;
+}
+
+.hall-coins {
+  text-align: right;
+}
+
+.hall-of-fame-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 14px;
+}
+
 .game-wrap > .help {
   display: none;
 }
@@ -1832,6 +1997,18 @@ button:hover {
 }
 
 @media (max-width: 560px) {
+  .hall-of-fame-card {
+    padding: 14px;
+  }
+
+  .hall-table-header,
+  .hall-leaderboard-row {
+    grid-template-columns: 46px minmax(96px, 1.2fr) minmax(92px, 1fr) 62px;
+    gap: 5px;
+    padding: 7px 6px;
+    font-size: 11px;
+  }
+
   .intro-card {
     padding: 14px;
   }

@@ -63,6 +63,20 @@ const introOverlay = document.getElementById("introOverlay");
 const startAdventureButton = document.getElementById("startAdventureButton");
 const continueAdventureButton = document.getElementById("continueAdventureButton");
 const continueSaveHint = document.getElementById("continueSaveHint");
+const hallOfFameOverlay = document.getElementById("hallOfFameOverlay");
+const hallCompletionSection = document.getElementById("hallCompletionSection");
+const hallLeaderboardSection = document.getElementById("hallLeaderboardSection");
+const pirateNameInput = document.getElementById("pirateNameInput");
+const saveAchievementButton = document.getElementById("saveAchievementButton");
+const hallEmptyMessage = document.getElementById("hallEmptyMessage");
+const hallLeaderboardTable = document.getElementById("hallLeaderboardTable");
+const hallLeaderboardRows = document.getElementById("hallLeaderboardRows");
+const hallOfFameActions = document.getElementById("hallOfFameActions");
+const hallPlayAgainButton = document.getElementById("hallPlayAgainButton");
+const hallViewButton = document.getElementById("hallViewButton");
+const hallOfFameCloseButton = document.getElementById("hallOfFameCloseButton");
+const hallOfFameButton = document.getElementById("hallOfFameButton");
+const introHallOfFameButton = document.getElementById("introHallOfFameButton");
 
 const gameWidth = 720;
 const gameHeight = 480;
@@ -83,6 +97,7 @@ const dashCooldownDuration = 2;
 const chestPosition = { x: 626, y: 398 };
 const playerStartPosition = { x: 46, y: 400 };
 const saveKey = "tinyPirateQuestSave";
+const leaderboardKey = "tinyPirateQuestLeaderboard";
 const audioPreferenceKey = "tinyPirateQuestAudioMuted";
 const audioVolumePreferenceKey = "tinyPirateQuestAudioVolume";
 
@@ -126,6 +141,7 @@ let powerUpTimer = 0;
 let shieldCharges = 0;
 let finalIslandActive = false;
 let ghostPirateDefeated = false;
+let finalAdventureCompleted = false;
 let bossDefeatToken = 0;
 let introActive = true;
 let defeatedEnemyIndexes = [];
@@ -553,8 +569,18 @@ function updateMusicForGameState() {
     return;
   }
 
+  if (!hallOfFameOverlay.classList.contains("hidden")) {
+    setMusicMode(finalAdventureCompleted ? "victory" : "off");
+    return;
+  }
+
   if (!gameOverlay.classList.contains("hidden")) {
     setMusicMode(overlayTitle.textContent === "Grand Treasure Found" ? "victory" : "off");
+    return;
+  }
+
+  if (finalAdventureCompleted) {
+    setMusicMode("victory");
     return;
   }
 
@@ -953,6 +979,7 @@ function startGame(options = {}) {
   }
 
   currentLevelIndex = 0;
+  finalAdventureCompleted = false;
   mapFragments = 0;
   totalCoins = 0;
   maxHealth = baseMaxHealth;
@@ -1030,6 +1057,184 @@ function clearSavedGame() {
     // Ignore storage cleanup errors.
   }
   updateContinueControls();
+}
+
+function sanitizePirateName(value) {
+  return GameLogic.sanitizePirateName(value, 20);
+}
+
+function formatLeaderboardDate(date) {
+  try {
+    return new Intl.DateTimeFormat(undefined, {
+      day: "2-digit",
+      month: "short",
+      year: "numeric"
+    }).format(date);
+  } catch (error) {
+    return date.toLocaleDateString();
+  }
+}
+
+function normalizeLeaderboardRecord(record) {
+  if (!record || typeof record !== "object") {
+    return null;
+  }
+
+  const completedAtDate = new Date(record.completedAt || record.completedDate);
+  const completedAt = Number.isNaN(completedAtDate.getTime())
+    ? new Date(0).toISOString()
+    : completedAtDate.toISOString();
+  const coins = Number(record.coins);
+  const fragments = Number(record.mapFragments);
+
+  return {
+    playerName: sanitizePirateName(record.playerName),
+    completedDate: typeof record.completedDate === "string" && record.completedDate.trim()
+      ? record.completedDate.trim()
+      : formatLeaderboardDate(new Date(completedAt)),
+    completedAt,
+    coins: Number.isFinite(coins) ? Math.max(0, Math.floor(coins)) : 0,
+    mapFragments: Number.isFinite(fragments) ? Math.max(0, Math.floor(fragments)) : 0
+  };
+}
+
+function loadLeaderboard() {
+  try {
+    const rawLeaderboard = localStorage.getItem(leaderboardKey);
+    const parsedLeaderboard = rawLeaderboard ? JSON.parse(rawLeaderboard) : [];
+
+    if (!Array.isArray(parsedLeaderboard)) {
+      return [];
+    }
+
+    return GameLogic.getTopLeaderboard(
+      parsedLeaderboard.map(normalizeLeaderboardRecord).filter(Boolean),
+      5
+    );
+  } catch (error) {
+    return [];
+  }
+}
+
+function saveLeaderboardRecord(record) {
+  const records = GameLogic.getTopLeaderboard([
+    ...loadLeaderboard(),
+    normalizeLeaderboardRecord(record)
+  ].filter(Boolean), 5);
+
+  try {
+    localStorage.setItem(leaderboardKey, JSON.stringify(records));
+    return { records, saved: true };
+  } catch (error) {
+    return { records, saved: false };
+  }
+}
+
+function createLeaderboardRecord(playerName) {
+  const completedAt = new Date();
+
+  return {
+    playerName: sanitizePirateName(playerName),
+    completedDate: formatLeaderboardDate(completedAt),
+    completedAt: completedAt.toISOString(),
+    coins: totalCoins,
+    mapFragments
+  };
+}
+
+function getLeaderboardRank(index) {
+  const rankBadges = ["\uD83E\uDD47", "\uD83E\uDD48", "\uD83E\uDD49", "4", "5"];
+  return rankBadges[index] || String(index + 1);
+}
+
+function renderLeaderboard(records = loadLeaderboard()) {
+  hallLeaderboardRows.replaceChildren();
+  hallEmptyMessage.classList.toggle("hidden", records.length > 0);
+  hallLeaderboardTable.classList.toggle("hidden", records.length === 0);
+
+  records.forEach((record, index) => {
+    const row = document.createElement("div");
+    const rank = document.createElement("span");
+    const playerName = document.createElement("span");
+    const completedDate = document.createElement("span");
+    const coins = document.createElement("span");
+
+    row.className = "hall-leaderboard-row";
+    rank.className = "hall-rank";
+    playerName.className = "hall-player-name";
+    completedDate.className = "hall-date";
+    coins.className = "hall-coins";
+
+    rank.textContent = getLeaderboardRank(index);
+    playerName.textContent = record.playerName;
+    completedDate.textContent = record.completedDate;
+    coins.textContent = `${record.coins} coins`;
+
+    row.append(rank, playerName, completedDate, coins);
+    hallLeaderboardRows.appendChild(row);
+  });
+}
+
+function showHallOfFame(options = {}) {
+  const isCompletionFlow = Boolean(options.completion);
+
+  resetMovementKeys();
+  hallOfFameOverlay.classList.remove("hidden");
+  hallCompletionSection.classList.toggle("hidden", !isCompletionFlow);
+  hallLeaderboardSection.classList.toggle("hidden", isCompletionFlow);
+  hallOfFameActions.classList.toggle("hidden", isCompletionFlow);
+  hallOfFameCloseButton.classList.toggle("hidden", isCompletionFlow);
+  updateMusicForGameState();
+
+  if (isCompletionFlow) {
+    pirateNameInput.value = "";
+    setTimeout(() => pirateNameInput.focus(), 0);
+    return;
+  }
+
+  renderLeaderboard();
+}
+
+function saveHallOfFameAchievement() {
+  const record = createLeaderboardRecord(pirateNameInput.value);
+  const result = saveLeaderboardRecord(record);
+
+  if (!result.saved) {
+    showToast("Leaderboard could not be saved in this browser.");
+    return;
+  }
+
+  pirateNameInput.value = record.playerName;
+  pirateNameInput.blur();
+  hallCompletionSection.classList.add("hidden");
+  hallLeaderboardSection.classList.remove("hidden");
+  hallOfFameActions.classList.remove("hidden");
+  hallOfFameCloseButton.classList.remove("hidden");
+  renderLeaderboard(result.records);
+  showToast("Achievement saved!");
+}
+
+function closeHallOfFame() {
+  hallOfFameOverlay.classList.add("hidden");
+  resetMovementKeys();
+  updateMusicForGameState();
+
+  if (!introActive && !gameOver) {
+    focusGame();
+  }
+}
+
+function playAgainFromHallOfFame() {
+  closeHallOfFame();
+  startNewAdventure();
+}
+
+function refreshHallOfFame() {
+  hallCompletionSection.classList.add("hidden");
+  hallLeaderboardSection.classList.remove("hidden");
+  hallOfFameActions.classList.remove("hidden");
+  hallOfFameCloseButton.classList.remove("hidden");
+  renderLeaderboard();
 }
 
 function saveGame() {
@@ -3953,16 +4158,16 @@ function showSailingTransition(islandName, onComplete) {
 
 function completeFinalAdventure() {
   gameOver = true;
+  finalAdventureCompleted = true;
   finalIslandActive = false;
   removeGrandTreasure();
   overlayAction = "restart";
   clearSavedGame();
-  showToast("Save cleared");
-  endGame(
-    "Grand Treasure Found",
-    "Congratulations! You found the Grand Treasure and became the Captain of the Tiny Sea! Rewards: Pirate Captain Hat, Golden Compass, Grand Treasure."
-  );
-  overlayRestartButton.textContent = "Restart Adventure";
+  gameOverlay.classList.add("hidden");
+  updateHud("You found the Grand Treasure and became a legend of the Tiny Sea!");
+  showToast("Grand Treasure found!");
+  showHallOfFame({ completion: true });
+  setMusicMode("victory");
 }
 
 function isTouching(a, b) {
@@ -4014,6 +4219,10 @@ function isUpgradeMenuOpen() {
   return !upgradeMenu.classList.contains("hidden");
 }
 
+function isHallOfFameOpen() {
+  return !hallOfFameOverlay.classList.contains("hidden");
+}
+
 function getMovementDirectionFromCode(code) {
   if (code === "KeyW" || code === "ArrowUp") {
     return "up";
@@ -4035,7 +4244,7 @@ function getMovementDirectionFromCode(code) {
 }
 
 function isGameplayBlocked() {
-  return introActive || gameOver || isNpcDialogueOpen() || isRouteQuestionOpen() || isWorldMapOpen() || isUpgradeMenuOpen();
+  return introActive || gameOver || isNpcDialogueOpen() || isRouteQuestionOpen() || isWorldMapOpen() || isUpgradeMenuOpen() || isHallOfFameOpen();
 }
 
 function resetMovementKeys() {
@@ -4071,6 +4280,14 @@ function gameLoop(currentTime) {
 
 document.addEventListener("keydown", (event) => {
   AudioManager.unlockAudio();
+
+  if (event.target === pirateNameInput) {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      saveHallOfFameAchievement();
+    }
+    return;
+  }
 
   const movementDirection = getMovementDirectionFromCode(event.code);
 
@@ -4173,6 +4390,12 @@ overlayRestartButton.addEventListener("click", handleOverlayButton);
 continueMapButton.addEventListener("click", continueToWorldMap);
 startAdventureButton.addEventListener("click", handleStartAdventureClick);
 continueAdventureButton.addEventListener("click", handleContinueAdventureClick);
+saveAchievementButton.addEventListener("click", saveHallOfFameAchievement);
+hallOfFameCloseButton.addEventListener("click", closeHallOfFame);
+hallPlayAgainButton.addEventListener("click", playAgainFromHallOfFame);
+hallViewButton.addEventListener("click", refreshHallOfFame);
+hallOfFameButton.addEventListener("click", () => showHallOfFame());
+introHallOfFameButton.addEventListener("click", () => showHallOfFame());
 testSoundButton.addEventListener("click", () => AudioManager.testSound());
 muteButton.addEventListener("click", AudioManager.toggleMute);
 gameArea.addEventListener("click", handleGameAreaClick);
