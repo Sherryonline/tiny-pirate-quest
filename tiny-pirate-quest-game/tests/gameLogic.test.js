@@ -138,9 +138,28 @@ test("combo expires after its hit window", () => {
   assert.deepEqual(GameLogic.updateComboState(activeCombo, 1), {
     count: 0,
     timer: 0,
-    damageTimer: 1,
+    damageTimer: 0,
     bonusCoinReady: false
   });
+});
+
+test("player damage reset clears the complete combo state", () => {
+  const activeCombo = { count: 4, timer: 2.5, damageTimer: 3, bonusCoinReady: true };
+
+  assert.deepEqual(GameLogic.resetComboState(activeCombo), {
+    count: 0,
+    timer: 0,
+    damageTimer: 0,
+    bonusCoinReady: false
+  });
+});
+
+test("combo and weakness damage are capped while bosses ignore combo damage", () => {
+  assert.equal(GameLogic.getBalancedAttackDamage(1, 1, 0, false), 2);
+  assert.equal(GameLogic.getBalancedAttackDamage(1, 1, 1, false), 3);
+  assert.equal(GameLogic.getBalancedAttackDamage(3, 1, 1, false), 3);
+  assert.equal(GameLogic.getBalancedAttackDamage(1, 1, 0, true), 1);
+  assert.equal(GameLogic.getBalancedAttackDamage(3, 1, 0, true), 2);
 });
 
 test("combo bonus coin readiness is consumed once", () => {
@@ -353,16 +372,16 @@ test("enemy rewards follow weighted drop table boundaries", () => {
 
 test("rare treasure drop rates keep rare rewards uncommon", () => {
   const table = [
-    { type: "goldenCompassPiece", weight: 0.04 },
-    { type: "ancientCoin", weight: 0.05 },
-    { type: "pirateBadge", weight: 0.025 },
-    { type: null, weight: 0.885 }
+    { type: "goldenCompassPiece", weight: 0.03 },
+    { type: "ancientCoin", weight: 0.04 },
+    { type: "pirateBadge", weight: 0.02 },
+    { type: null, weight: 0.91 }
   ];
 
-  assert.equal(GameLogic.pickWeightedReward(table, 0.039), "goldenCompassPiece");
-  assert.equal(GameLogic.pickWeightedReward(table, 0.04), "ancientCoin");
-  assert.equal(GameLogic.pickWeightedReward(table, 0.09), "pirateBadge");
-  assert.equal(GameLogic.pickWeightedReward(table, 0.115), null);
+  assert.equal(GameLogic.pickWeightedReward(table, 0.029), "goldenCompassPiece");
+  assert.equal(GameLogic.pickWeightedReward(table, 0.03), "ancientCoin");
+  assert.equal(GameLogic.pickWeightedReward(table, 0.07), "pirateBadge");
+  assert.equal(GameLogic.pickWeightedReward(table, 0.091), null);
 });
 
 test("three Ancient Coins unlock the Golden Pirate skin", () => {
@@ -429,7 +448,30 @@ test("companion pickup requires both pet range and nearby player path", () => {
   const parrot = { x: 100, y: 100 };
   const player = { x: 130, y: 100 };
 
-  assert.equal(GameLogic.canCompanionCollect(parrot, { x: 150, y: 100 }, player, 60, 110), true);
-  assert.equal(GameLogic.canCompanionCollect(parrot, { x: 170, y: 100 }, player, 60, 110), false);
-  assert.equal(GameLogic.canCompanionCollect(parrot, { x: 50, y: 100 }, { x: 300, y: 100 }, 60, 110), false);
+  assert.equal(GameLogic.canCompanionCollect(parrot, { x: 150, y: 100 }, player, 55, 100), true);
+  assert.equal(GameLogic.canCompanionCollect(parrot, { x: 156, y: 100 }, player, 55, 100), false);
+  assert.equal(GameLogic.canCompanionCollect(parrot, { x: 50, y: 100 }, { x: 300, y: 100 }, 55, 100), false);
+});
+
+test("parrot unlock restores from save or completed Coconut side quest", () => {
+  const incompleteQuests = [{ island: "Coconut Island", rewarded: false }];
+  const completedQuests = [{ island: "Coconut Island", rewarded: true }];
+
+  assert.equal(GameLogic.isParrotUnlocked(false, incompleteQuests), false);
+  assert.equal(GameLogic.isParrotUnlocked(true, incompleteQuests), true);
+  assert.equal(GameLogic.isParrotUnlocked(false, completedQuests), true);
+});
+
+test("persistent rare unlockables survive a serialized save round trip", () => {
+  const unlocked = GameLogic.normalizeRareCollection({
+    goldenCompassPieces: 3,
+    ancientCoins: 3,
+    pirateBadge: true,
+    selectedSkin: "goldenPirate"
+  });
+  const restored = GameLogic.normalizeRareCollection(JSON.parse(JSON.stringify(unlocked)));
+
+  assert.deepEqual(restored, unlocked);
+  assert.equal(restored.secretEndingUnlocked, true);
+  assert.deepEqual(restored.unlockedSkins, ["classic", "goldenPirate"]);
 });

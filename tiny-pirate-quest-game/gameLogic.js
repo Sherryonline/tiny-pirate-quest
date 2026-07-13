@@ -147,12 +147,7 @@
     const damageTimer = Math.max(0, comboState.damageTimer - elapsed);
 
     if (timer === 0) {
-      return {
-        count: 0,
-        timer: 0,
-        damageTimer,
-        bonusCoinReady: false
-      };
+      return resetComboState();
     }
 
     return {
@@ -199,6 +194,25 @@
     }
 
     return 0;
+  }
+
+  function getBalancedAttackDamage(baseDamage, comboBonus, weaknessBonus, isBoss) {
+    const base = Math.max(0, Number(baseDamage) || 0);
+
+    if (isBoss) {
+      return Math.min(2, base);
+    }
+
+    const combo = Math.min(1, Math.max(0, Number(comboBonus) || 0));
+    const weakness = Math.min(1, Math.max(0, Number(weaknessBonus) || 0));
+    return Math.min(3, base + combo + weakness);
+  }
+
+  function isParrotUnlocked(savedUnlock, sideQuestState) {
+    const coconutQuest = Array.isArray(sideQuestState)
+      ? sideQuestState.find((quest) => quest && quest.island === "Coconut Island")
+      : null;
+    return Boolean(savedUnlock || (coconutQuest && coconutQuest.rewarded));
   }
 
   function getPlayerSpeed(baseSpeed, hasStrongSail, activePowerUpId) {
@@ -462,6 +476,7 @@
     resetComboState,
     consumeComboBonus,
     getEnemyWeaknessBonus,
+    getBalancedAttackDamage,
     getPlayerSpeed,
     getBuffedCooldown,
     buyUpgrade,
@@ -478,6 +493,7 @@
     normalizeRareCollection,
     collectRareTreasure,
     getCompanionFollowPosition,
-    canCompanionCollect
+    canCompanionCollect,
+    isParrotUnlocked
   };
 });

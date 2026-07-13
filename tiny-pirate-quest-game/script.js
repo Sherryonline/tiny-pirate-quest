@@ -114,8 +114,8 @@ const enemyProjectileSpeed = 230;
 const rewardDropSize = 28;
 const rewardDropLifetime = 10;
 const parrotSize = 28;
-const parrotPickupRadius = 60;
-const parrotPathRadius = 110;
+const parrotPickupRadius = 55;
+const parrotPathRadius = 100;
 const parrotWarningCooldownDuration = 5;
 const parrotHintDelay = 12;
 const maxShieldCharges = 3;
@@ -741,7 +741,7 @@ const enemyBehaviorConfigs = {
   fogSpirit: {
     name: "Fog Spirit",
     icon: "\uD83D\uDC7B",
-    hp: 2,
+    hp: 3,
     speed: 110,
     chaseSpeed: 142,
     damageMessage: "A Fog Spirit chilled you!",
@@ -755,7 +755,7 @@ const enemyBehaviorConfigs = {
   fireImp: {
     name: "Fire Imp",
     icon: "\uD83D\uDD25",
-    hp: 2,
+    hp: 3,
     speed: 120,
     damageMessage: "A Fire Imp burned you!",
     defeatMessage: "Enemy defeated! +1 coin",
@@ -769,7 +769,7 @@ const enemyBehaviorConfigs = {
   ghostMinion: {
     name: "Ghost Minion",
     icon: "\uD83D\uDC7B",
-    hp: 2,
+    hp: 3,
     speed: 82,
     chaseSpeed: 118,
     damageMessage: "A Ghost Minion clawed you!",
@@ -816,10 +816,10 @@ const rewardTypes = {
 };
 
 const rareTreasureDropTable = [
-  { type: "goldenCompassPiece", weight: 0.04 },
-  { type: "ancientCoin", weight: 0.05 },
-  { type: "pirateBadge", weight: 0.025 },
-  { type: null, weight: 0.885 }
+  { type: "goldenCompassPiece", weight: 0.03 },
+  { type: "ancientCoin", weight: 0.04 },
+  { type: "pirateBadge", weight: 0.02 },
+  { type: null, weight: 0.91 }
 ];
 
 const islandRewardTables = {
@@ -1522,8 +1522,7 @@ function restoreGameState(savedState) {
       rewarded: Boolean(savedQuest && savedQuest.rewarded)
     };
   });
-  const coconutQuest = sideQuestState.find((quest) => quest.island === "Coconut Island");
-  parrotUnlocked = Boolean(savedState.parrotUnlocked || (coconutQuest && coconutQuest.rewarded));
+  parrotUnlocked = GameLogic.isParrotUnlocked(savedState.parrotUnlocked, sideQuestState);
   parrotName = typeof savedState.parrotName === "string" && savedState.parrotName.trim()
     ? savedState.parrotName.trim().slice(0, 20)
     : "Polly";
@@ -2029,8 +2028,10 @@ function updateCombatStatusUi() {
 
     if (comboState.bonusCoinReady) {
       comboMessage += " - Bonus Coin Ready!";
-    } else if (comboState.damageTimer > 0) {
+    } else if (comboState.damageTimer > 0 && !bossActive) {
       comboMessage += " - Power Strike!";
+    } else if (comboState.damageTimer > 0) {
+      comboMessage += " - Combo Chain!";
     }
 
     comboMeter.textContent = `${comboMessage} ${comboState.timer.toFixed(1)}s`;
@@ -3712,7 +3713,12 @@ function attackBoss() {
 
   const meleeRange = purchasedUpgrades.includes("sharpSword") ? bossAttackRange + 22 : bossAttackRange;
   const meleeThickness = purchasedUpgrades.includes("sharpSword") ? bossAttackThickness + 16 : bossAttackThickness;
-  const meleeDamage = Math.min(getMeleeDamage() + getComboDamageBonusForNextHit(), 3);
+  const meleeDamage = GameLogic.getBalancedAttackDamage(
+    getMeleeDamage(),
+    getComboDamageBonusForNextHit(),
+    0,
+    true
+  );
   const attackArea = GameLogic.getAttackArea(player, attackDirection, {
     spriteSize,
     range: meleeRange,
@@ -3873,7 +3879,12 @@ function attackRegularEnemy() {
   const meleeRange = purchasedUpgrades.includes("sharpSword") ? bossAttackRange + 22 : bossAttackRange;
   const meleeThickness = purchasedUpgrades.includes("sharpSword") ? bossAttackThickness + 16 : bossAttackThickness;
   const weaknessBonus = getEnemyWeaknessBonus(target, "sword");
-  const meleeDamage = getMeleeDamage() + getComboDamageBonusForNextHit() + weaknessBonus;
+  const meleeDamage = GameLogic.getBalancedAttackDamage(
+    getMeleeDamage(),
+    getComboDamageBonusForNextHit(),
+    weaknessBonus,
+    false
+  );
   const attackArea = GameLogic.getAttackArea(player, attackDirection, {
     spriteSize,
     range: meleeRange,
@@ -4285,7 +4296,7 @@ function clearBullets() {
 
 function damageEnemy(enemy, damage, message, attackType = "gun") {
   const weaknessBonus = getEnemyWeaknessBonus(enemy, attackType);
-  const totalDamage = damage + weaknessBonus;
+  const totalDamage = GameLogic.getBalancedAttackDamage(damage, 0, weaknessBonus, false);
   registerComboHit();
   enemy.hp = Math.max(0, enemy.hp - totalDamage);
   enemy.stunTimer = 0.35;
