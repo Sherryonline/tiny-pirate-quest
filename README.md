@@ -192,7 +192,25 @@ Player attacks against regular enemies:
 - Sharp Sword increases melee size and damage.
 - Pirate Gun bullets can hit regular enemies as well as bosses.
 - Enemy hits show a hit effect, floating damage text, and toast feedback.
-- Defeating an enemy gives a one-time `+1` wallet coin reward and removes that enemy.
+- Each defeated enemy rolls its island reward table once and may leave a collectible drop for 10 seconds.
+- Touching a drop applies its effect; the same enemy cannot produce another reward.
+
+Combat rewards are balanced by island:
+
+| Island | Reward Emphasis |
+|---|---|
+| Coconut Island | Mostly coins, with uncommon hearts and rare shields or Heart Shards; no attack buffs |
+| Mist Island | Coins, Wind Leaves, and Shield Orbs for movement and dodging |
+| Volcano Island | Coins, Sword Flame, and Heart Shards for combat survival |
+| Final Treasure Island | Coins, Focus Stars, Heart Shards, and rare stronger support drops |
+
+Permanent combat limits:
+
+- Shield charges cap at 3.
+- Maximum player health caps at 6, including Reinforced Hull and Heart Shard upgrades.
+- Three Heart Shards add one max HP until the cap is reached.
+- Temporary Wind, Sword Flame, and Focus effects refresh their timers instead of stacking.
+- Continue restores permanent health, shield, shard, wallet, upgrades, island, and side-quest progress while clearing temporary combat effects.
 
 Projectile fairness:
 
@@ -394,7 +412,20 @@ npm run check
 | Fireball projectile | Fireball moves straight, expires/leaves the map cleanly, and damages only on contact |
 | Ghost Minion | Final island spawns slow chasing minions before/during the final boss flow |
 | Enemy melee | `Space` damages normal enemies, shows hit effect, and reduces enemy HP |
-| Enemy reward | Defeated enemies disappear and grant a one-time `+1` wallet coin |
+| Enemy reward | Each defeated enemy rolls once, drops at most one island-appropriate reward, and the drop expires after 10 seconds |
+| Coconut rewards | Drops favor coins and basic recovery; no Wind, Sword, or Focus combat buffs appear |
+| Mist rewards | Wind Leaves and Shield Orbs appear often enough to support dodging |
+| Volcano rewards | Sword Flame and Heart Shards appear more often than shields |
+| Final rewards | Focus Star appears as the main temporary combat reward |
+| Heart reward | Restores one HP without exceeding max HP; full HP shows a clear message |
+| Shield reward | Charges cap at 3 and block damage before HP is reduced |
+| Heart Shards | Three shards add one max HP, reset shard progress, and never raise max HP above 6 |
+| Wind Leaf | Adds 60 movement speed for 7 seconds, refreshes on recollect, then removes its aura and timer |
+| Sword Flame | Adds one sword damage for 8 seconds, refreshes on recollect, and shows a flame slash |
+| Focus Star | Reduces sword and gun cooldowns by 30% for 8 seconds without bypassing the gun cooldown floor |
+| Active Skill Bar | Shows only active shield, shard, Wind, Sword, and Focus entries without expanding the map |
+| Save/Continue rewards | Restores HP, max HP, shield, shards, wallet, upgrades, completed islands, and side quests |
+| Save/Continue effects | Clears temporary buffs, projectiles, warning zones, and short-lived effects |
 | Boss spawn | Boss appears after all coins are collected |
 | Boss HP | Boss HP label follows the boss |
 | Battle Panel | Appears only while boss is active and updates boss HP bar |
@@ -409,7 +440,7 @@ npm run check
 | Ghost Pirate rage | At 6 HP or less, Battle Panel shows Ghost Rage with dash slash and ghost bullets |
 | Grand Treasure lock | Cannot open until Ghost Pirate is defeated |
 | Sharp Sword | Melee hit is larger and deals more damage |
-| Pirate Gun | `J` fires cooldown bullets that can damage bosses |
+| Pirate Gun | Left click inside the map fires cooldown bullets that can damage enemies and bosses |
 | Heart Potion | Heals 1 HP, never exceeds max HP, and warns when HP is full |
 | Ship transition | World Map selection shows Sailing to island message before loading |
 | NPC side quests | Collect side items, talk with `E`, and receive reward once |

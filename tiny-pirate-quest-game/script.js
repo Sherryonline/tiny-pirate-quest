@@ -93,6 +93,7 @@ const bossAttackRange = 60;
 const bossAttackThickness = 50;
 const bossChaseDuration = 3;
 const gunCooldownDuration = 0.7;
+const minimumGunCooldown = 0.45;
 const bulletSpeed = 420;
 const bulletLifetime = 1.35;
 const bulletSize = 12;
@@ -101,6 +102,7 @@ const enemyProjectileSpeed = 230;
 const rewardDropSize = 28;
 const rewardDropLifetime = 10;
 const maxShieldCharges = 3;
+const maxPlayerHealth = 6;
 const heartShardsPerUpgrade = 3;
 const windBuffDuration = 7;
 const swordBuffDuration = 8;
@@ -137,6 +139,7 @@ let totalCoins = 0;
 let gameOver;
 let currentLevelIndex = 0;
 let mapFragments = 0;
+let completedIslands = [];
 let crew = [];
 let purchasedUpgrades = [];
 let enemyHitCooldown;
@@ -750,38 +753,45 @@ const rewardTypes = {
   focusStar: { icon: "\u2B50", floatingText: "Focus!", toast: "Focus Star collected!" }
 };
 
-const enemyRewardTables = {
-  crabPatrol: [
-    { type: "coin", weight: 0.45 },
-    { type: "heart", weight: 0.15 },
+const islandRewardTables = {
+  coconut: [
+    { type: "coin", weight: 0.55 },
+    { type: "heart", weight: 0.2 },
     { type: "shieldOrb", weight: 0.1 },
-    { type: "heartShard", weight: 0.1 },
-    { type: "focusStar", weight: 0.1 },
+    { type: "heartShard", weight: 0.05 },
     { type: null, weight: 0.1 }
   ],
-  fogSpirit: [
+  mist: [
     { type: "coin", weight: 0.35 },
     { type: "windLeaf", weight: 0.25 },
-    { type: "shieldOrb", weight: 0.15 },
-    { type: "heartShard", weight: 0.1 },
-    { type: "focusStar", weight: 0.1 },
+    { type: "shieldOrb", weight: 0.2 },
+    { type: "heart", weight: 0.1 },
+    { type: "heartShard", weight: 0.05 },
     { type: null, weight: 0.05 }
   ],
-  fireImp: [
+  volcano: [
     { type: "coin", weight: 0.35 },
     { type: "swordFlame", weight: 0.25 },
-    { type: "heart", weight: 0.15 },
-    { type: "heartShard", weight: 0.1 },
-    { type: "focusStar", weight: 0.1 },
+    { type: "heartShard", weight: 0.2 },
+    { type: "heart", weight: 0.1 },
+    { type: "shieldOrb", weight: 0.05 },
+    { type: null, weight: 0.05 }
+  ],
+  final: [
+    { type: "coin", weight: 0.35 },
+    { type: "focusStar", weight: 0.25 },
+    { type: "heartShard", weight: 0.15 },
+    { type: "shieldOrb", weight: 0.1 },
+    { type: "swordFlame", weight: 0.05 },
+    { type: "heart", weight: 0.05 },
     { type: null, weight: 0.05 }
   ],
   generic: [
-    { type: "coin", weight: 0.4 },
-    { type: "heart", weight: 0.15 },
-    { type: "shieldOrb", weight: 0.15 },
+    { type: "coin", weight: 0.45 },
+    { type: "heart", weight: 0.2 },
+    { type: "shieldOrb", weight: 0.1 },
     { type: "heartShard", weight: 0.1 },
-    { type: "focusStar", weight: 0.1 },
-    { type: null, weight: 0.1 }
+    { type: null, weight: 0.15 }
   ]
 };
 
@@ -1042,6 +1052,7 @@ function startGame(options = {}) {
   currentLevelIndex = 0;
   finalAdventureCompleted = false;
   mapFragments = 0;
+  completedIslands = [];
   totalCoins = 0;
   maxHealth = baseMaxHealth;
   shieldCharges = 0;
@@ -1307,7 +1318,7 @@ function saveGame() {
   }
 
   const state = {
-    version: 1,
+    version: 2,
     currentLevelIndex,
     finalIslandActive,
     player: player ? { x: player.x, y: player.y } : { ...playerStartPosition },
@@ -1317,6 +1328,7 @@ function saveGame() {
     collectedCoinIndexes: coins.map((coin, index) => coin.collected ? index : null).filter((index) => index !== null),
     totalCoins,
     mapFragments,
+    completedIslands: [...completedIslands],
     crew: [...crew],
     purchasedUpgrades: [...purchasedUpgrades],
     sideQuestState: sideQuestState.map((quest) => ({ ...quest })),
@@ -1350,15 +1362,28 @@ function saveGame() {
 function restoreGameState(savedState) {
   currentLevelIndex = keepInside(savedState.currentLevelIndex || 0, levels.length - 1);
   finalIslandActive = Boolean(savedState.finalIslandActive);
-  maxHealth = Math.max(baseMaxHealth, Number(savedState.maxHealth) || baseMaxHealth);
+  maxHealth = Math.min(maxPlayerHealth, Math.max(baseMaxHealth, Number(savedState.maxHealth) || baseMaxHealth));
   health = Math.min(Number.isFinite(Number(savedState.health)) ? Number(savedState.health) : maxHealth, maxHealth);
-  totalCoins = savedState.totalCoins || 0;
-  mapFragments = savedState.mapFragments || 0;
+  totalCoins = Math.max(0, Number(savedState.totalCoins) || 0);
+  const savedFragmentCount = keepInside(Number(savedState.mapFragments) || 0, levels.length);
+  completedIslands = Array.isArray(savedState.completedIslands)
+    ? [...new Set(savedState.completedIslands)].filter((name) => levels.some((level) => level.name === name))
+    : levels.slice(0, savedFragmentCount).map((level) => level.name);
+  mapFragments = completedIslands.length;
   crew = Array.isArray(savedState.crew) ? [...savedState.crew] : [];
-  purchasedUpgrades = Array.isArray(savedState.purchasedUpgrades) ? [...savedState.purchasedUpgrades] : [];
-  sideQuestState = Array.isArray(savedState.sideQuestState)
-    ? savedState.sideQuestState.map((quest) => ({ ...quest }))
-    : sideQuestConfigs.map((quest) => ({ island: quest.island, progress: 0, rewarded: false }));
+  purchasedUpgrades = Array.isArray(savedState.purchasedUpgrades)
+    ? savedState.purchasedUpgrades.filter((id) => shipUpgrades.some((upgrade) => upgrade.id === id && !upgrade.consumable))
+    : [];
+  sideQuestState = sideQuestConfigs.map((config) => {
+    const savedQuest = Array.isArray(savedState.sideQuestState)
+      ? savedState.sideQuestState.find((quest) => quest.island === config.island)
+      : null;
+    return {
+      island: config.island,
+      progress: Math.min(config.target, Math.max(0, Number(savedQuest && savedQuest.progress) || 0)),
+      rewarded: Boolean(savedQuest && savedQuest.rewarded)
+    };
+  });
   ghostPirateDefeated = Boolean(savedState.ghostPirateDefeated);
   activePowerUp = null;
   powerUpTimer = 0;
@@ -3572,11 +3597,13 @@ function defeatEnemy(enemy) {
 }
 
 function handleEnemyDefeated(enemy) {
-  if (enemy.rewarded) {
+  const claim = GameLogic.claimEnemyReward(enemy.rewarded);
+  enemy.rewarded = claim.rewarded;
+
+  if (!claim.shouldDrop) {
     return null;
   }
 
-  enemy.rewarded = true;
   const rewardType = getEnemyReward(enemy);
 
   if (rewardType) {
@@ -3587,7 +3614,8 @@ function handleEnemyDefeated(enemy) {
 }
 
 function getEnemyReward(enemy) {
-  const dropTable = enemyRewardTables[enemy.type] || enemyRewardTables.generic;
+  const islandKey = finalIslandActive ? "final" : ["coconut", "mist", "volcano"][currentLevelIndex];
+  const dropTable = islandRewardTables[islandKey] || islandRewardTables.generic;
   return GameLogic.pickWeightedReward(dropTable, Math.random());
 }
 
@@ -3667,23 +3695,23 @@ function collectRewardDrop(reward) {
     toastMessage = shieldCharges > previousCharges ? "Shield charge +1!" : "Shield charges are full.";
     playPlayerPickupEffect("shield");
   } else if (reward.type === "heartShard") {
-    const result = GameLogic.collectHeartShard(heartShardCount, health, maxHealth, heartShardsPerUpgrade);
+    const result = GameLogic.collectHeartShard(heartShardCount, health, maxHealth, heartShardsPerUpgrade, maxPlayerHealth);
     heartShardCount = result.shardCount;
     health = result.health;
     maxHealth = result.maxHealth;
-    floatingText = result.upgraded ? "Max HP +1" : `Shard ${heartShardCount}/${heartShardsPerUpgrade}`;
-    toastMessage = result.upgraded ? "Three shards formed a new heart!" : "Heart Shard collected!";
+    floatingText = result.capped ? "Max HP Cap" : (result.upgraded ? "Max HP +1" : `Shard ${heartShardCount}/${heartShardsPerUpgrade}`);
+    toastMessage = result.capped ? `Maximum HP is ${maxPlayerHealth}.` : (result.upgraded ? "Three shards formed a new heart!" : "Heart Shard collected!");
     playPlayerPickupEffect("shard");
   } else if (reward.type === "windLeaf") {
-    rewardSkillTimers.wind = windBuffDuration;
+    rewardSkillTimers = GameLogic.refreshBuffTimer(rewardSkillTimers, "wind", windBuffDuration);
     floatingText = "Wind Boost!";
     toastMessage = `Wind boost active for ${windBuffDuration}s!`;
   } else if (reward.type === "swordFlame") {
-    rewardSkillTimers.sword = swordBuffDuration;
+    rewardSkillTimers = GameLogic.refreshBuffTimer(rewardSkillTimers, "sword", swordBuffDuration);
     floatingText = "Sword Power!";
     toastMessage = `Sword Flame active for ${swordBuffDuration}s!`;
   } else if (reward.type === "focusStar") {
-    rewardSkillTimers.focus = focusBuffDuration;
+    rewardSkillTimers = GameLogic.refreshBuffTimer(rewardSkillTimers, "focus", focusBuffDuration);
     floatingText = "Focus!";
     toastMessage = `Focus active for ${focusBuffDuration}s!`;
   }
@@ -3766,7 +3794,7 @@ function shootPirateGun(targetX, targetY) {
   });
 
   showMuzzleFlash(playerCenter, vector);
-  gunCooldown = getCombatCooldown(gunCooldownDuration);
+  gunCooldown = getCombatCooldown(gunCooldownDuration, minimumGunCooldown);
   AudioManager.playSound("gun");
   showToast("Pirate Gun fired!");
 }
@@ -3908,8 +3936,8 @@ function getMeleeDamage() {
   return (purchasedUpgrades.includes("sharpSword") ? 2 : 1) + (rewardSkillTimers.sword > 0 ? 1 : 0);
 }
 
-function getCombatCooldown(baseCooldown) {
-  return GameLogic.getBuffedCooldown(baseCooldown, rewardSkillTimers.focus > 0);
+function getCombatCooldown(baseCooldown, minimumCooldown = 0) {
+  return Math.max(minimumCooldown, GameLogic.getBuffedCooldown(baseCooldown, rewardSkillTimers.focus > 0));
 }
 
 function activateMysteryFruit(fruit) {
@@ -3987,9 +4015,11 @@ function updateActiveSkills(deltaTime) {
     focus: "Focus faded"
   };
 
+  const previousTimers = rewardSkillTimers;
+  rewardSkillTimers = GameLogic.updateBuffTimers(rewardSkillTimers, deltaTime);
+
   Object.keys(rewardSkillTimers).forEach((skill) => {
-    const wasActive = rewardSkillTimers[skill] > 0;
-    rewardSkillTimers[skill] = Math.max(0, rewardSkillTimers[skill] - deltaTime);
+    const wasActive = previousTimers[skill] > 0;
 
     if (wasActive && rewardSkillTimers[skill] === 0) {
       showToast(expiryMessages[skill]);
@@ -4163,7 +4193,8 @@ function completeLevel() {
   const cookMessage = applyCookEffect();
 
   totalCoins += score;
-  mapFragments += 1;
+  completedIslands = GameLogic.addCompletedIsland(completedIslands, completedLevelName);
+  mapFragments = completedIslands.length;
   gameOver = true;
   showToast("Map fragment collected!");
   updateHud([
@@ -4245,6 +4276,12 @@ function buyUpgrade(upgradeId) {
     return;
   }
 
+  if (upgrade.id === "reinforcedHull" && maxHealth >= maxPlayerHealth) {
+    showToast(`Maximum HP is ${maxPlayerHealth}.`);
+    upgradeMessage.textContent = "Your hull cannot support more health.";
+    return;
+  }
+
   const result = GameLogic.buyUpgrade(totalCoins, purchasedUpgrades, upgrade);
 
   if (result.reason === "already-purchased") {
@@ -4298,7 +4335,7 @@ function buyHeartPotion(upgrade) {
 
 function applyUpgradeEffect(upgradeId) {
   if (upgradeId === "reinforcedHull") {
-    maxHealth += 1;
+    maxHealth = Math.min(maxPlayerHealth, maxHealth + 1);
     health = Math.min(health + 1, maxHealth);
   }
 }

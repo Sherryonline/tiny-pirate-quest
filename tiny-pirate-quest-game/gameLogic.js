@@ -68,8 +68,20 @@
     return Math.min(limit, Math.max(0, shieldCharges) + 1);
   }
 
-  function collectHeartShard(shardCount, health, maxHealth, requiredShards) {
+  function collectHeartShard(shardCount, health, maxHealth, requiredShards, maximumHealth) {
     const target = Number.isFinite(requiredShards) ? requiredShards : 3;
+    const healthLimit = Number.isFinite(maximumHealth) ? maximumHealth : Infinity;
+
+    if (maxHealth >= healthLimit) {
+      return {
+        shardCount: 0,
+        health,
+        maxHealth,
+        upgraded: false,
+        capped: true
+      };
+    }
+
     const nextShardCount = shardCount + 1;
 
     if (nextShardCount < target) {
@@ -77,17 +89,46 @@
         shardCount: nextShardCount,
         health,
         maxHealth,
-        upgraded: false
+        upgraded: false,
+        capped: false
       };
     }
 
-    const nextMaxHealth = maxHealth + 1;
+    const nextMaxHealth = Math.min(maxHealth + 1, healthLimit);
     return {
       shardCount: 0,
       health: Math.min(nextMaxHealth, health + 1),
       maxHealth: nextMaxHealth,
-      upgraded: true
+      upgraded: true,
+      capped: false
     };
+  }
+
+  function refreshBuffTimer(timers, buffName, duration) {
+    return {
+      ...timers,
+      [buffName]: Math.max(0, Number(duration) || 0)
+    };
+  }
+
+  function updateBuffTimers(timers, deltaTime) {
+    const elapsed = Math.max(0, Number(deltaTime) || 0);
+    return Object.fromEntries(
+      Object.entries(timers).map(([name, timer]) => [name, Math.max(0, timer - elapsed)])
+    );
+  }
+
+  function claimEnemyReward(alreadyRewarded) {
+    return {
+      rewarded: true,
+      shouldDrop: !alreadyRewarded
+    };
+  }
+
+  function addCompletedIsland(completedIslands, islandName) {
+    return completedIslands.includes(islandName)
+      ? [...completedIslands]
+      : [...completedIslands, islandName];
   }
 
   function getPlayerSpeed(baseSpeed, hasStrongSail, activePowerUpId) {
@@ -289,6 +330,10 @@
     applyHeartReward,
     addShieldCharge,
     collectHeartShard,
+    refreshBuffTimer,
+    updateBuffTimers,
+    claimEnemyReward,
+    addCompletedIsland,
     getPlayerSpeed,
     getBuffedCooldown,
     buyUpgrade,

@@ -113,12 +113,14 @@ h1 {
 
 .active-skill-bar {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: center;
   gap: 5px;
   width: 100%;
   min-height: 24px;
+  max-height: 24px;
   padding: 1px 2px;
+  overflow: hidden;
 }
 
 .active-skill-bar.hidden {
@@ -126,6 +128,7 @@ h1 {
 }
 
 .active-skill-chip {
+  flex: 0 0 auto;
   display: inline-flex;
   align-items: center;
   min-height: 22px;

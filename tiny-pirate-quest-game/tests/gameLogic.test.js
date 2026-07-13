@@ -69,14 +69,51 @@ test("three heart shards increase max health and heal one", () => {
     shardCount: 2,
     health: 2,
     maxHealth: 3,
-    upgraded: false
+    upgraded: false,
+    capped: false
   });
   assert.deepEqual(GameLogic.collectHeartShard(2, 2, 3, 3), {
     shardCount: 0,
     health: 3,
     maxHealth: 4,
-    upgraded: true
+    upgraded: true,
+    capped: false
   });
+});
+
+test("heart shard health upgrades stop at the player health cap", () => {
+  assert.deepEqual(GameLogic.collectHeartShard(2, 5, 6, 3, 6), {
+    shardCount: 0,
+    health: 5,
+    maxHealth: 6,
+    upgraded: false,
+    capped: true
+  });
+});
+
+test("buff timers decrease and refresh without stacking", () => {
+  const active = { wind: 5, sword: 0, focus: 2 };
+  assert.deepEqual(GameLogic.updateBuffTimers(active, 1.5), {
+    wind: 3.5,
+    sword: 0,
+    focus: 0.5
+  });
+  assert.deepEqual(GameLogic.refreshBuffTimer(active, "wind", 7), {
+    wind: 7,
+    sword: 0,
+    focus: 2
+  });
+});
+
+test("an enemy reward can only be claimed once", () => {
+  assert.deepEqual(GameLogic.claimEnemyReward(false), { rewarded: true, shouldDrop: true });
+  assert.deepEqual(GameLogic.claimEnemyReward(true), { rewarded: true, shouldDrop: false });
+});
+
+test("completed islands remain unique when replayed", () => {
+  assert.deepEqual(GameLogic.addCompletedIsland([], "Coconut Island"), ["Coconut Island"]);
+  assert.deepEqual(GameLogic.addCompletedIsland(["Coconut Island"], "Coconut Island"), ["Coconut Island"]);
+  assert.deepEqual(GameLogic.addCompletedIsland(["Coconut Island"], "Mist Island"), ["Coconut Island", "Mist Island"]);
 });
 
 test("upgrades require enough coins and apply once", () => {
