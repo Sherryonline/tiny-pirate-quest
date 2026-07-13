@@ -131,6 +131,56 @@
       : [...completedIslands, islandName];
   }
 
+  function registerComboHit(comboState, comboWindow, powerDuration) {
+    const nextCount = comboState.count + 1;
+    return {
+      count: nextCount,
+      timer: comboWindow,
+      damageTimer: nextCount === 2 ? powerDuration : comboState.damageTimer,
+      bonusCoinReady: comboState.bonusCoinReady || nextCount === 3
+    };
+  }
+
+  function updateComboState(comboState, deltaTime) {
+    const elapsed = Math.max(0, Number(deltaTime) || 0);
+    const timer = Math.max(0, comboState.timer - elapsed);
+    const damageTimer = Math.max(0, comboState.damageTimer - elapsed);
+
+    if (timer === 0) {
+      return {
+        count: 0,
+        timer: 0,
+        damageTimer,
+        bonusCoinReady: false
+      };
+    }
+
+    return {
+      ...comboState,
+      timer,
+      damageTimer
+    };
+  }
+
+  function resetComboState() {
+    return {
+      count: 0,
+      timer: 0,
+      damageTimer: 0,
+      bonusCoinReady: false
+    };
+  }
+
+  function consumeComboBonus(comboState) {
+    return {
+      comboState: {
+        ...comboState,
+        bonusCoinReady: false
+      },
+      shouldDrop: comboState.bonusCoinReady
+    };
+  }
+
   function getPlayerSpeed(baseSpeed, hasStrongSail, activePowerUpId) {
     let speed = hasStrongSail ? baseSpeed + 45 : baseSpeed;
 
@@ -334,6 +384,10 @@
     updateBuffTimers,
     claimEnemyReward,
     addCompletedIsland,
+    registerComboHit,
+    updateComboState,
+    resetComboState,
+    consumeComboBonus,
     getPlayerSpeed,
     getBuffedCooldown,
     buyUpgrade,

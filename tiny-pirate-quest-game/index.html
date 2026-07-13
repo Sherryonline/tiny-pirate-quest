@@ -32,6 +32,15 @@
       <span id="skillFocus" class="active-skill-chip hidden"></span>
     </section>
 
+    <section class="combat-status-bar" aria-label="Combo and skill cooldowns">
+      <span id="comboMeter" class="combo-meter hidden" aria-live="polite"></span>
+      <div id="cooldownBar" class="cooldown-bar" aria-label="Skill cooldowns">
+        <span id="swordCooldown" class="cooldown-chip ready"></span>
+        <span id="gunCooldown" class="cooldown-chip locked"></span>
+        <span id="dashCooldown" class="cooldown-chip ready"></span>
+      </div>
+    </section>
+
     <section class="quest-panel mission-bar" aria-label="Mission information">
       <div class="mission-chip mission-chip-island">
         <span class="mission-icon" aria-hidden="true">🏝️</span>

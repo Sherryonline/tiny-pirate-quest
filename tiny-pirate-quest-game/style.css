@@ -147,6 +147,64 @@ h1 {
   display: none;
 }
 
+.combat-status-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 24px;
+  padding: 0 2px;
+  overflow: hidden;
+}
+
+.combo-meter {
+  min-width: 0;
+  overflow: hidden;
+  color: #8b3f18;
+  font-size: 11px;
+  font-weight: bold;
+  line-height: 1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.combo-meter.hidden {
+  display: none;
+}
+
+.cooldown-bar {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-left: auto;
+}
+
+.cooldown-chip {
+  min-width: 62px;
+  padding: 4px 6px;
+  font-size: 10.5px;
+  font-weight: bold;
+  line-height: 1;
+  text-align: center;
+  white-space: nowrap;
+  border: 1px solid rgba(139, 90, 43, 0.5);
+  border-radius: 999px;
+}
+
+.cooldown-chip.ready {
+  color: #174d2c;
+  background: #dff5c8;
+  box-shadow: 0 0 5px rgba(88, 178, 91, 0.35);
+}
+
+.cooldown-chip.cooling,
+.cooldown-chip.locked {
+  color: #786b5c;
+  background: #e1d8c6;
+  opacity: 0.72;
+}
+
 .status-fallback {
   display: none;
 }
@@ -994,6 +1052,10 @@ h1 {
   animation: focus-pulse 0.65s ease-in-out infinite alternate;
 }
 
+#player.combo-flash {
+  animation: combo-flash 0.4s ease-out;
+}
+
 .enemy {
   z-index: 4;
 }
@@ -1297,6 +1359,11 @@ h1 {
 .floating-text.reward {
   color: #fff3a6;
   font-size: 15px;
+}
+
+.floating-text.combo {
+  color: #fff07a;
+  font-size: 16px;
 }
 
 .grand-treasure.locked {
@@ -2015,6 +2082,16 @@ button:hover {
   to {
     opacity: 1;
     transform: scale(1.15) rotate(8deg);
+  }
+}
+
+@keyframes combo-flash {
+  0%, 100% {
+    filter: none;
+  }
+  45% {
+    filter: drop-shadow(0 0 14px #fff07a) saturate(1.4);
+    transform: scale(1.14);
   }
 }
 

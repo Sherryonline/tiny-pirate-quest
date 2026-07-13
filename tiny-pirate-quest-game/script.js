@@ -17,6 +17,10 @@ const skillShards = document.getElementById("skillShards");
 const skillWind = document.getElementById("skillWind");
 const skillSword = document.getElementById("skillSword");
 const skillFocus = document.getElementById("skillFocus");
+const comboMeter = document.getElementById("comboMeter");
+const swordCooldownElement = document.getElementById("swordCooldown");
+const gunCooldownElement = document.getElementById("gunCooldown");
+const dashCooldownElement = document.getElementById("dashCooldown");
 const questPanel = document.querySelector(".quest-panel");
 const questIslandElement = document.getElementById("questIsland");
 const questObjectiveElement = document.getElementById("questObjective");
@@ -107,6 +111,8 @@ const heartShardsPerUpgrade = 3;
 const windBuffDuration = 7;
 const swordBuffDuration = 8;
 const focusBuffDuration = 8;
+const comboWindowDuration = 2.5;
+const comboDamageDuration = 3;
 const dashDistance = 90;
 const dashCooldownDuration = 2;
 const chestPosition = { x: 626, y: 398 };
@@ -158,6 +164,7 @@ let powerUpTimer = 0;
 let shieldCharges = 0;
 let heartShardCount = 0;
 let rewardSkillTimers = { wind: 0, sword: 0, focus: 0 };
+let comboState = { count: 0, timer: 0, damageTimer: 0, bonusCoinReady: false };
 let finalIslandActive = false;
 let ghostPirateDefeated = false;
 let finalAdventureCompleted = false;
@@ -447,6 +454,9 @@ function playSound(name) {
   } else if (name === "enemyDefeated") {
     playTone(520, 0.08, "sine", 0.1);
     setTimeout(() => playTone(780, 0.12, "sine", 0.1), 70);
+  } else if (name === "combo") {
+    playTone(700, 0.06, "triangle", 0.08, 940);
+    setTimeout(() => playTone(1040, 0.08, "sine", 0.07), 55);
   } else if (name === "bossWarning") {
     playTone(170, 0.12, "triangle", 0.1);
     setTimeout(() => playTone(130, 0.14, "triangle", 0.1), 130);
@@ -1485,6 +1495,7 @@ function clearTemporaryCombatState() {
   dashCooldown = 0;
   gunCooldown = 0;
   enemyHitCooldown = 0;
+  resetCombo();
   clearBullets();
   clearGhostBullets();
   clearEnemyProjectiles();
@@ -1525,6 +1536,7 @@ function startLevel(options = {}) {
   activePowerUp = null;
   powerUpTimer = 0;
   resetRewardSkillTimers();
+  resetCombo();
 
   if (!options.fromSave) {
     defeatedEnemyIndexes = [];
@@ -1761,6 +1773,7 @@ function startFinalTreasureIsland(options = {}) {
   activePowerUp = null;
   powerUpTimer = 0;
   resetRewardSkillTimers();
+  resetCombo();
   playerElement.classList.remove("damaged", "dashing");
   routePanel.classList.add("hidden");
   worldMap.classList.add("hidden");
@@ -1843,6 +1856,7 @@ function updateHud(message) {
   updateHpLabels();
   updateHeartHealth();
   updateActiveSkillBar();
+  updateCombatStatusUi();
   updateQuestPanel();
   updateBattlePanel();
   updateMusicForGameState();
@@ -1872,6 +1886,42 @@ function updateActiveSkillBar() {
   });
 
   activeSkillBar.classList.toggle("hidden", visibleSkillCount === 0);
+}
+
+function updateCombatStatusUi() {
+  if (comboState.count > 0) {
+    let comboMessage = `Combo x${comboState.count}`;
+
+    if (comboState.bonusCoinReady) {
+      comboMessage += " - Bonus Coin Ready!";
+    } else if (comboState.damageTimer > 0) {
+      comboMessage += " - Power Strike!";
+    }
+
+    comboMeter.textContent = `${comboMessage} ${comboState.timer.toFixed(1)}s`;
+    comboMeter.classList.remove("hidden");
+  } else {
+    comboMeter.classList.add("hidden");
+  }
+
+  updateCooldownChip(swordCooldownElement, "\u2694", attackCooldown);
+  updateCooldownChip(dashCooldownElement, "\uD83D\uDCA8", dashCooldown);
+
+  if (purchasedUpgrades.includes("pirateGun")) {
+    updateCooldownChip(gunCooldownElement, "\uD83D\uDD2B", gunCooldown);
+  } else {
+    gunCooldownElement.textContent = "\uD83D\uDD2B Locked";
+    gunCooldownElement.classList.remove("ready", "cooling");
+    gunCooldownElement.classList.add("locked");
+  }
+}
+
+function updateCooldownChip(element, icon, cooldown) {
+  const isReady = cooldown <= 0;
+  element.textContent = isReady ? `${icon} Ready` : `${icon} ${cooldown.toFixed(1)}s`;
+  element.classList.toggle("ready", isReady);
+  element.classList.toggle("cooling", !isReady);
+  element.classList.remove("locked");
 }
 
 function syncGameAreaCursor() {
@@ -3334,7 +3384,7 @@ function attackBoss() {
 
   const meleeRange = purchasedUpgrades.includes("sharpSword") ? bossAttackRange + 22 : bossAttackRange;
   const meleeThickness = purchasedUpgrades.includes("sharpSword") ? bossAttackThickness + 16 : bossAttackThickness;
-  const meleeDamage = getMeleeDamage();
+  const meleeDamage = Math.min(getMeleeDamage() + getComboDamageBonusForNextHit(), 3);
   const attackArea = GameLogic.getAttackArea(player, attackDirection, {
     spriteSize,
     range: meleeRange,
@@ -3366,6 +3416,7 @@ function attackBoss() {
     return;
   }
 
+  registerComboHit();
   boss.hp = result.bossHp;
   boss.stunTimer = boss.stunDuration;
   playBossHitEffect();
@@ -3493,7 +3544,7 @@ function attackRegularEnemy() {
   const attackDirection = lastDirection;
   const meleeRange = purchasedUpgrades.includes("sharpSword") ? bossAttackRange + 22 : bossAttackRange;
   const meleeThickness = purchasedUpgrades.includes("sharpSword") ? bossAttackThickness + 16 : bossAttackThickness;
-  const meleeDamage = getMeleeDamage();
+  const meleeDamage = getMeleeDamage() + getComboDamageBonusForNextHit();
   const attackArea = GameLogic.getAttackArea(player, attackDirection, {
     spriteSize,
     range: meleeRange,
@@ -3510,6 +3561,7 @@ function attackRegularEnemy() {
     return false;
   }
 
+  registerComboHit();
   attackCooldown = getCombatCooldown(0.45);
   target.hp = Math.max(0, target.hp - meleeDamage);
   target.stunTimer = 0.35;
@@ -3566,11 +3618,12 @@ function defeatEnemy(enemy) {
 
   if (!enemy.rewarded) {
     const reward = handleEnemyDefeated(enemy);
+    const comboReward = consumeComboBonusCoin(enemy);
     if (!defeatedEnemyIndexes.includes(enemy.spawnIndex)) {
       defeatedEnemyIndexes.push(enemy.spawnIndex);
     }
     showToast("Enemy defeated!");
-    updateHud(reward ? `${enemy.name} defeated! A reward dropped.` : `${enemy.name} defeated!`);
+    updateHud(reward || comboReward ? `${enemy.name} defeated! A reward dropped.` : `${enemy.name} defeated!`);
     saveGame();
   }
 
@@ -3594,6 +3647,20 @@ function defeatEnemy(enemy) {
       enemyElement.style.display = "none";
     }
   }, 420);
+}
+
+function consumeComboBonusCoin(enemy) {
+  const result = GameLogic.consumeComboBonus(comboState);
+  comboState = result.comboState;
+
+  if (!result.shouldDrop) {
+    return null;
+  }
+
+  const reward = spawnRewardDrop(enemy.x + 18, enemy.y, "coin");
+  showToast("Combo bonus coin dropped!");
+  updateCombatStatusUi();
+  return reward;
 }
 
 function handleEnemyDefeated(enemy) {
@@ -3857,6 +3924,7 @@ function clearBullets() {
 }
 
 function damageEnemy(enemy, damage, message) {
+  registerComboHit();
   enemy.hp = Math.max(0, enemy.hp - damage);
   enemy.stunTimer = 0.35;
   enemy.element.classList.remove("hit");
@@ -3883,6 +3951,7 @@ function damageBoss(damage, message) {
     return;
   }
 
+  registerComboHit();
   boss.hp = Math.max(0, boss.hp - damage);
   boss.stunTimer = boss.stunDuration;
   playBossHitEffect();
@@ -3934,6 +4003,44 @@ function getPlayerSpeed() {
 
 function getMeleeDamage() {
   return (purchasedUpgrades.includes("sharpSword") ? 2 : 1) + (rewardSkillTimers.sword > 0 ? 1 : 0);
+}
+
+function getComboDamageBonusForNextHit() {
+  const willActivatePowerStrike = comboState.count === 1 && comboState.timer > 0;
+  return comboState.damageTimer > 0 || willActivatePowerStrike ? 1 : 0;
+}
+
+function registerComboHit() {
+  comboState = GameLogic.registerComboHit(comboState, comboWindowDuration, comboDamageDuration);
+
+  if (comboState.count === 2 || comboState.count === 3) {
+    showFloatingText(`Combo x${comboState.count}!`, player.x - 4, player.y - 12, "combo");
+    playComboFlash();
+    AudioManager.playSound("combo");
+  }
+
+  updateCombatStatusUi();
+}
+
+function updateCombo(deltaTime) {
+  comboState = GameLogic.updateComboState(comboState, deltaTime);
+  updateCombatStatusUi();
+}
+
+function resetCombo() {
+  comboState = GameLogic.resetComboState();
+  playerElement.classList.remove("combo-flash");
+
+  if (comboMeter) {
+    updateCombatStatusUi();
+  }
+}
+
+function playComboFlash() {
+  playerElement.classList.remove("combo-flash");
+  void playerElement.offsetWidth;
+  playerElement.classList.add("combo-flash");
+  setTimeout(() => playerElement.classList.remove("combo-flash"), 420);
 }
 
 function getCombatCooldown(baseCooldown, minimumCooldown = 0) {
@@ -4098,6 +4205,7 @@ function answerRouteQuestion(choiceIndex) {
   }
 
   health = result.health;
+  resetCombo();
   showToast("Wrong answer! HP -1");
   AudioManager.playSound("routeWrong");
   updateHud(result.message);
@@ -4135,6 +4243,8 @@ function takeDamage(statusMessage, gameOverMessage, options = {}) {
     saveGame();
     return;
   }
+
+  resetCombo();
 
   if (options.flash) {
     flashPlayer();
@@ -4606,6 +4716,7 @@ function gameLoop(currentTime) {
     attackCooldown = Math.max(0, attackCooldown - safeDeltaTime);
     dashCooldown = Math.max(0, dashCooldown - safeDeltaTime);
     gunCooldown = Math.max(0, gunCooldown - safeDeltaTime);
+    updateCombo(safeDeltaTime);
     movePlayer(safeDeltaTime);
     moveEnemies(safeDeltaTime);
     updatePowerUp(safeDeltaTime);

@@ -116,6 +116,43 @@ test("completed islands remain unique when replayed", () => {
   assert.deepEqual(GameLogic.addCompletedIsland(["Coconut Island"], "Mist Island"), ["Coconut Island", "Mist Island"]);
 });
 
+test("combo hits refresh the window and unlock power rewards", () => {
+  const emptyCombo = GameLogic.resetComboState();
+  const firstHit = GameLogic.registerComboHit(emptyCombo, 2.5, 3);
+  const secondHit = GameLogic.registerComboHit(firstHit, 2.5, 3);
+  const thirdHit = GameLogic.registerComboHit(secondHit, 2.5, 3);
+
+  assert.deepEqual(firstHit, { count: 1, timer: 2.5, damageTimer: 0, bonusCoinReady: false });
+  assert.deepEqual(secondHit, { count: 2, timer: 2.5, damageTimer: 3, bonusCoinReady: false });
+  assert.deepEqual(thirdHit, { count: 3, timer: 2.5, damageTimer: 3, bonusCoinReady: true });
+});
+
+test("combo expires after its hit window", () => {
+  const activeCombo = { count: 3, timer: 1, damageTimer: 2, bonusCoinReady: true };
+  assert.deepEqual(GameLogic.updateComboState(activeCombo, 0.4), {
+    count: 3,
+    timer: 0.6,
+    damageTimer: 1.6,
+    bonusCoinReady: true
+  });
+  assert.deepEqual(GameLogic.updateComboState(activeCombo, 1), {
+    count: 0,
+    timer: 0,
+    damageTimer: 1,
+    bonusCoinReady: false
+  });
+});
+
+test("combo bonus coin readiness is consumed once", () => {
+  const readyCombo = { count: 3, timer: 2, damageTimer: 2.5, bonusCoinReady: true };
+  const firstClaim = GameLogic.consumeComboBonus(readyCombo);
+  const secondClaim = GameLogic.consumeComboBonus(firstClaim.comboState);
+
+  assert.equal(firstClaim.shouldDrop, true);
+  assert.equal(firstClaim.comboState.bonusCoinReady, false);
+  assert.equal(secondClaim.shouldDrop, false);
+});
+
 test("upgrades require enough coins and apply once", () => {
   const strongSail = { id: "strongSail", cost: 8 };
 
