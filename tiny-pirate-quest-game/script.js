@@ -92,6 +92,8 @@ const bulletLifetime = 1.35;
 const bulletSize = 12;
 const ghostBulletSpeed = 250;
 const enemyProjectileSpeed = 230;
+const rewardDropSize = 28;
+const rewardDropLifetime = 10;
 const dashDistance = 90;
 const dashCooldownDuration = 2;
 const chestPosition = { x: 626, y: 398 };
@@ -113,6 +115,7 @@ let coins;
 let bullets = [];
 let ghostBullets = [];
 let enemyProjectiles = [];
+let rewardDrops = [];
 let npc = null;
 let sideQuestItems = [];
 let lavaBursts = [];
@@ -724,6 +727,41 @@ const enemyBehaviorConfigs = {
   }
 };
 
+const rewardTypes = {
+  coin: { icon: "\uD83E\uDE99", floatingText: "+1 Coin", toast: "Coin reward collected!" },
+  heart: { icon: "\u2764\uFE0F", floatingText: "+1 HP", toast: "Heart reward collected!" },
+  shieldOrb: { icon: "\uD83D\uDEE1\uFE0F", floatingText: "Shield +1", toast: "Shield charge +1!" },
+  windLeaf: { icon: "\uD83C\uDF43", floatingText: "Wind Leaf!", toast: "Wind Leaf collected!" },
+  swordFlame: { icon: "\uD83D\uDD25", floatingText: "Sword Flame!", toast: "Sword Flame collected!" }
+};
+
+const enemyRewardTables = {
+  crabPatrol: [
+    { type: "coin", weight: 0.5 },
+    { type: "heart", weight: 0.2 },
+    { type: "shieldOrb", weight: 0.1 },
+    { type: null, weight: 0.2 }
+  ],
+  fogSpirit: [
+    { type: "coin", weight: 0.4 },
+    { type: "windLeaf", weight: 0.25 },
+    { type: "shieldOrb", weight: 0.2 },
+    { type: null, weight: 0.15 }
+  ],
+  fireImp: [
+    { type: "coin", weight: 0.4 },
+    { type: "swordFlame", weight: 0.25 },
+    { type: "heart", weight: 0.2 },
+    { type: null, weight: 0.15 }
+  ],
+  generic: [
+    { type: "coin", weight: 0.45 },
+    { type: "heart", weight: 0.2 },
+    { type: "shieldOrb", weight: 0.15 },
+    { type: null, weight: 0.2 }
+  ]
+};
+
 const levelConfig = {
   levels: [
     {
@@ -1263,6 +1301,13 @@ function saveGame() {
     bossType: boss ? boss.type : null,
     bossEventStarted,
     defeatedEnemyIndexes: [...defeatedEnemyIndexes],
+    rewardDrops: rewardDrops.map((reward) => ({
+      x: reward.x,
+      y: reward.y,
+      type: reward.type,
+      expiresAt: reward.expiresAt
+    })),
+    shieldCharges,
     ghostPirateDefeated,
     activePowerUpId: null
   };
@@ -1320,6 +1365,9 @@ function restoreGameState(savedState) {
       }
     });
   }
+
+  shieldCharges = Math.max(0, Number(savedState.shieldCharges) || 0);
+  restoreRewardDrops(savedState.rewardDrops);
 
   if (routeUnlocked && !finalIslandActive) {
     chestElement.classList.remove("hidden");
@@ -1389,6 +1437,11 @@ function clearTemporaryCombatState() {
   clearLavaBursts();
 }
 
+function clearRewardDrops() {
+  rewardDrops.forEach((reward) => reward.element.remove());
+  rewardDrops = [];
+}
+
 function focusGame() {
   gameArea.setAttribute("tabindex", "-1");
   gameArea.focus({ preventScroll: true });
@@ -1436,6 +1489,7 @@ function startLevel(options = {}) {
   removeBoss();
   removeMysteryFruit();
   removeGrandTreasure();
+  clearRewardDrops();
   clearBullets();
   clearGhostBullets();
   clearEnemyProjectiles();
@@ -1662,6 +1716,7 @@ function startFinalTreasureIsland(options = {}) {
   removeBoss();
   removeMysteryFruit();
   removeGrandTreasure();
+  clearRewardDrops();
   clearBullets();
   clearGhostBullets();
   clearEnemyProjectiles();
@@ -1677,11 +1732,12 @@ function startFinalTreasureIsland(options = {}) {
 }
 
 function clearLevelObjects() {
-  document.querySelectorAll(".coin, .lava, .extra-enemy, .enemy-projectile").forEach((element) => element.remove());
+  document.querySelectorAll(".coin, .lava, .extra-enemy, .enemy-projectile, .reward-drop").forEach((element) => element.remove());
   coins = [];
   lavaTraps = [];
   enemies = [];
   clearEnemyProjectiles();
+  rewardDrops = [];
   clearSideQuestObjects();
 }
 
@@ -2100,6 +2156,11 @@ function drawSprites() {
     bullet.element.style.top = `${bullet.y}px`;
   });
 
+  rewardDrops.forEach((reward) => {
+    reward.element.style.left = `${reward.x}px`;
+    reward.element.style.top = `${reward.y}px`;
+  });
+
   if (mysteryFruit) {
     mysteryFruit.element.style.left = `${mysteryFruit.x}px`;
     mysteryFruit.element.style.top = `${mysteryFruit.y}px`;
@@ -2367,6 +2428,7 @@ function checkCollisions(deltaTime) {
 
   checkRegularEnemyDamage();
   checkEnemyProjectileDamage();
+  collectTouchedRewardDrops();
 
   if (finalIslandActive) {
     if (grandTreasure && ghostPirateDefeated && isTouching(player, grandTreasure)) {
@@ -3424,13 +3486,12 @@ function defeatEnemy(enemy) {
   showFloatingText("Defeated!", enemy.x - 4, enemy.y - 14, "defeat");
 
   if (!enemy.rewarded) {
-    enemy.rewarded = true;
-    totalCoins += enemy.rewardCoins;
+    const reward = handleEnemyDefeated(enemy);
     if (!defeatedEnemyIndexes.includes(enemy.spawnIndex)) {
       defeatedEnemyIndexes.push(enemy.spawnIndex);
     }
-    showToast(enemy.defeatMessage);
-    updateHud(`${enemy.name} defeated! +${enemy.rewardCoins} coin`);
+    showToast("Enemy defeated!");
+    updateHud(reward ? `${enemy.name} defeated! A reward dropped.` : `${enemy.name} defeated!`);
     saveGame();
   }
 
@@ -3454,6 +3515,113 @@ function defeatEnemy(enemy) {
       enemyElement.style.display = "none";
     }
   }, 420);
+}
+
+function handleEnemyDefeated(enemy) {
+  if (enemy.rewarded) {
+    return null;
+  }
+
+  enemy.rewarded = true;
+  const rewardType = getEnemyReward(enemy);
+
+  if (rewardType) {
+    return spawnRewardDrop(enemy.x, enemy.y, rewardType);
+  }
+
+  return null;
+}
+
+function getEnemyReward(enemy) {
+  const dropTable = enemyRewardTables[enemy.type] || enemyRewardTables.generic;
+  return GameLogic.pickWeightedReward(dropTable, Math.random());
+}
+
+function spawnRewardDrop(x, y, rewardType, expiresAt = Date.now() + rewardDropLifetime * 1000, exactPosition = false) {
+  const config = rewardTypes[rewardType];
+
+  if (!config || expiresAt <= Date.now()) {
+    return null;
+  }
+
+  const element = document.createElement("div");
+  element.className = `reward-drop reward-${rewardType}`;
+  element.textContent = config.icon;
+  element.setAttribute("aria-label", rewardType);
+  gameArea.appendChild(element);
+
+  const reward = {
+    type: rewardType,
+    x: keepInside(x + (exactPosition ? 0 : (spriteSize - rewardDropSize) / 2), gameWidth - rewardDropSize),
+    y: keepInside(y + (exactPosition ? 0 : (spriteSize - rewardDropSize) / 2), gameHeight - rewardDropSize),
+    lifetime: Math.max(0, (expiresAt - Date.now()) / 1000),
+    expiresAt,
+    collected: false,
+    element
+  };
+
+  rewardDrops.push(reward);
+  return reward;
+}
+
+function restoreRewardDrops(savedRewards) {
+  clearRewardDrops();
+
+  if (!Array.isArray(savedRewards)) {
+    return;
+  }
+
+  savedRewards.forEach((reward) => {
+    spawnRewardDrop(reward.x, reward.y, reward.type, Number(reward.expiresAt) || 0, true);
+  });
+}
+
+function collectTouchedRewardDrops() {
+  rewardDrops.forEach((reward) => {
+    const rewardArea = { x: reward.x, y: reward.y, width: rewardDropSize, height: rewardDropSize };
+    const playerArea = { x: player.x, y: player.y, width: spriteSize, height: spriteSize };
+
+    if (!reward.collected && rectanglesOverlap(playerArea, rewardArea)) {
+      collectRewardDrop(reward);
+    }
+  });
+}
+
+function collectRewardDrop(reward) {
+  if (!reward || reward.collected) {
+    return;
+  }
+
+  reward.collected = true;
+  const config = rewardTypes[reward.type];
+
+  if (reward.type === "coin") {
+    totalCoins += 1;
+  } else if (reward.type === "heart") {
+    health = Math.min(maxHealth, health + 1);
+  } else if (reward.type === "shieldOrb") {
+    shieldCharges += 1;
+  }
+
+  reward.element.remove();
+  rewardDrops = rewardDrops.filter((item) => item !== reward);
+  showFloatingText(config.floatingText, player.x + 2, player.y - 10, "reward");
+  showToast(config.toast);
+  AudioManager.playSound("coin");
+  updateHud(config.toast);
+  saveGame();
+}
+
+function updateRewardDrops(deltaTime) {
+  rewardDrops.forEach((reward) => {
+    reward.lifetime = Math.max(0, reward.lifetime - deltaTime);
+
+    if (reward.lifetime === 0 || reward.expiresAt <= Date.now()) {
+      reward.element.remove();
+    }
+  });
+
+  rewardDrops = rewardDrops.filter((reward) => reward.lifetime > 0 && reward.expiresAt > Date.now());
 }
 
 function shootPirateGun(targetX, targetY) {
@@ -3705,6 +3873,10 @@ function expirePowerUp() {
 }
 
 function getActiveFruitText() {
+  if (shieldCharges > 0 && (!activePowerUp || activePowerUp.id !== "shield")) {
+    return `Shield x${shieldCharges}`;
+  }
+
   if (!activePowerUp) {
     return "None";
   }
@@ -3795,7 +3967,7 @@ function takeDamage(statusMessage, gameOverMessage, options = {}) {
   if (result.blocked) {
     activePowerUp = null;
     showToast("Shield blocked damage!");
-    updateHud("Shield Fruit blocked the hit!");
+    updateHud("Your shield blocked the hit!");
     saveGame();
     return;
   }
@@ -4268,6 +4440,7 @@ function gameLoop(currentTime) {
     updatePowerUp(safeDeltaTime);
     updateBullets(safeDeltaTime);
     updateEnemyProjectiles(safeDeltaTime);
+    updateRewardDrops(safeDeltaTime);
     checkCollisions(safeDeltaTime);
     updateBoss(safeDeltaTime);
     drawSprites();

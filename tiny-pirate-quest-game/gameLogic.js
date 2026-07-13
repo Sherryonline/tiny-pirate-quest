@@ -226,6 +226,21 @@
     return sortLeaderboardRecords(records).slice(0, recordLimit);
   }
 
+  function pickWeightedReward(dropTable, roll) {
+    const safeRoll = Math.max(0, Math.min(Number(roll) || 0, 0.999999));
+    let totalWeight = 0;
+
+    for (const entry of dropTable || []) {
+      totalWeight += Number(entry.weight) || 0;
+
+      if (safeRoll < totalWeight) {
+        return entry.type || null;
+      }
+    }
+
+    return null;
+  }
+
   return {
     isTouching,
     keepInside,
@@ -241,6 +256,7 @@
     attackBoss,
     sanitizePirateName,
     sortLeaderboardRecords,
-    getTopLeaderboard
+    getTopLeaderboard,
+    pickWeightedReward
   };
 });

@@ -203,3 +203,18 @@ test("leaderboard stores only the top five records", () => {
   assert.equal(topFive.length, 5);
   assert.deepEqual(topFive.map((record) => record.coins), [7, 6, 5, 4, 3]);
 });
+
+test("enemy rewards follow weighted drop table boundaries", () => {
+  const table = [
+    { type: "coin", weight: 0.5 },
+    { type: "heart", weight: 0.2 },
+    { type: "shieldOrb", weight: 0.1 },
+    { type: null, weight: 0.2 }
+  ];
+
+  assert.equal(GameLogic.pickWeightedReward(table, 0), "coin");
+  assert.equal(GameLogic.pickWeightedReward(table, 0.499), "coin");
+  assert.equal(GameLogic.pickWeightedReward(table, 0.5), "heart");
+  assert.equal(GameLogic.pickWeightedReward(table, 0.7), "shieldOrb");
+  assert.equal(GameLogic.pickWeightedReward(table, 0.8), null);
+});
