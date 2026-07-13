@@ -958,6 +958,39 @@ h1 {
   animation: pickup-shard 0.62s ease-out;
 }
 
+#player.buff-wind::before {
+  position: absolute;
+  left: -8px;
+  top: -7px;
+  z-index: -1;
+  width: 48px;
+  height: 46px;
+  content: "";
+  pointer-events: none;
+  border: 3px solid rgba(93, 224, 130, 0.72);
+  border-left-color: transparent;
+  border-radius: 50%;
+  box-shadow: -12px 3px 0 -9px rgba(134, 255, 169, 0.9);
+  animation: wind-aura 0.55s linear infinite;
+}
+
+#player.buff-sword .pirate-body {
+  box-shadow: 0 0 9px 3px rgba(255, 102, 32, 0.78);
+}
+
+#player.buff-focus::after {
+  position: absolute;
+  right: -7px;
+  top: -9px;
+  z-index: 7;
+  content: "\2605";
+  color: #fff07a;
+  font-size: 14px;
+  pointer-events: none;
+  text-shadow: 0 0 7px #ffcf33;
+  animation: focus-pulse 0.65s ease-in-out infinite alternate;
+}
+
 .enemy {
   z-index: 4;
 }
@@ -1179,6 +1212,12 @@ h1 {
 
 .slash-effect.down {
   animation-name: slash-pop-down;
+}
+
+.slash-effect.flame {
+  color: #ff6b24;
+  text-shadow: 0 0 5px #fff2a8, 0 0 12px #ff4d1f;
+  filter: saturate(1.35);
 }
 
 .bullet-effect {
@@ -1947,6 +1986,32 @@ button:hover {
   35% {
     filter: drop-shadow(-7px -5px 4px #ff8fc7) drop-shadow(7px 3px 4px #ffd3e9);
     transform: scale(1.13) rotate(-4deg);
+  }
+}
+
+@keyframes wind-aura {
+  from {
+    opacity: 0.45;
+    transform: rotate(0deg) scale(0.9);
+  }
+  50% {
+    opacity: 1;
+    transform: rotate(180deg) scale(1.05);
+  }
+  to {
+    opacity: 0.45;
+    transform: rotate(360deg) scale(0.9);
+  }
+}
+
+@keyframes focus-pulse {
+  from {
+    opacity: 0.6;
+    transform: scale(0.82) rotate(-8deg);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1.15) rotate(8deg);
   }
 }
 

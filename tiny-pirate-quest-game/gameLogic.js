@@ -94,10 +94,14 @@
     let speed = hasStrongSail ? baseSpeed + 45 : baseSpeed;
 
     if (activePowerUpId === "wind") {
-      speed += 70;
+      speed += 60;
     }
 
     return speed;
+  }
+
+  function getBuffedCooldown(baseCooldown, focusActive) {
+    return focusActive ? baseCooldown * 0.7 : baseCooldown;
   }
 
   function buyUpgrade(wallet, purchasedUpgrades, upgrade) {
@@ -286,6 +290,7 @@
     addShieldCharge,
     collectHeartShard,
     getPlayerSpeed,
+    getBuffedCooldown,
     buyUpgrade,
     canSelectIsland,
     getUnlockedIslandIndex,

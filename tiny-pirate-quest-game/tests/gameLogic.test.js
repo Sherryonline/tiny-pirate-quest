@@ -95,7 +95,13 @@ test("upgrades require enough coins and apply once", () => {
 test("speed combines Strong Sail and Wind Fruit", () => {
   assert.equal(GameLogic.getPlayerSpeed(220, false, null), 220);
   assert.equal(GameLogic.getPlayerSpeed(220, true, null), 265);
-  assert.equal(GameLogic.getPlayerSpeed(220, true, "wind"), 335);
+  assert.equal(GameLogic.getPlayerSpeed(220, true, "wind"), 325);
+});
+
+test("Focus reduces combat cooldowns by thirty percent", () => {
+  assert.equal(GameLogic.getBuffedCooldown(1, false), 1);
+  assert.equal(GameLogic.getBuffedCooldown(1, true), 0.7);
+  assert.ok(Math.abs(GameLogic.getBuffedCooldown(0.7, true) - 0.49) < 0.000001);
 });
 
 test("island unlock follows map fragment count", () => {

@@ -102,7 +102,9 @@ const rewardDropSize = 28;
 const rewardDropLifetime = 10;
 const maxShieldCharges = 3;
 const heartShardsPerUpgrade = 3;
-const rewardSkillDuration = 8;
+const windBuffDuration = 7;
+const swordBuffDuration = 8;
+const focusBuffDuration = 8;
 const dashDistance = 90;
 const dashCooldownDuration = 2;
 const chestPosition = { x: 626, y: 398 };
@@ -744,36 +746,41 @@ const rewardTypes = {
   shieldOrb: { icon: "\uD83D\uDEE1\uFE0F", floatingText: "Shield +1", toast: "Shield charge +1!" },
   heartShard: { icon: "\uD83D\uDC97", floatingText: "Heart Shard!", toast: "Heart Shard collected!" },
   windLeaf: { icon: "\uD83C\uDF43", floatingText: "Wind Leaf!", toast: "Wind Leaf collected!" },
-  swordFlame: { icon: "\uD83D\uDD25", floatingText: "Sword Flame!", toast: "Sword Flame collected!" }
+  swordFlame: { icon: "\uD83D\uDD25", floatingText: "Sword Flame!", toast: "Sword Flame collected!" },
+  focusStar: { icon: "\u2B50", floatingText: "Focus!", toast: "Focus Star collected!" }
 };
 
 const enemyRewardTables = {
   crabPatrol: [
-    { type: "coin", weight: 0.5 },
-    { type: "heart", weight: 0.2 },
+    { type: "coin", weight: 0.45 },
+    { type: "heart", weight: 0.15 },
     { type: "shieldOrb", weight: 0.1 },
     { type: "heartShard", weight: 0.1 },
+    { type: "focusStar", weight: 0.1 },
     { type: null, weight: 0.1 }
   ],
   fogSpirit: [
-    { type: "coin", weight: 0.4 },
+    { type: "coin", weight: 0.35 },
     { type: "windLeaf", weight: 0.25 },
-    { type: "shieldOrb", weight: 0.2 },
+    { type: "shieldOrb", weight: 0.15 },
     { type: "heartShard", weight: 0.1 },
+    { type: "focusStar", weight: 0.1 },
     { type: null, weight: 0.05 }
   ],
   fireImp: [
-    { type: "coin", weight: 0.4 },
+    { type: "coin", weight: 0.35 },
     { type: "swordFlame", weight: 0.25 },
-    { type: "heart", weight: 0.2 },
+    { type: "heart", weight: 0.15 },
     { type: "heartShard", weight: 0.1 },
+    { type: "focusStar", weight: 0.1 },
     { type: null, weight: 0.05 }
   ],
   generic: [
-    { type: "coin", weight: 0.45 },
-    { type: "heart", weight: 0.2 },
+    { type: "coin", weight: 0.4 },
+    { type: "heart", weight: 0.15 },
     { type: "shieldOrb", weight: 0.15 },
     { type: "heartShard", weight: 0.1 },
+    { type: "focusStar", weight: 0.1 },
     { type: null, weight: 0.1 }
   ]
 };
@@ -3316,8 +3323,8 @@ function attackBoss() {
     attackArea,
     damage: meleeDamage,
     cooldown: attackCooldown,
-    hitCooldown: 0.6,
-    missCooldown: 0.2
+    hitCooldown: getCombatCooldown(0.6),
+    missCooldown: getCombatCooldown(0.2)
   });
 
   attackCooldown = result.cooldown;
@@ -3427,9 +3434,10 @@ function getBossDefeatMessage(bossName) {
 
 function showSlashEffect(attackArea, direction) {
   const slash = document.createElement("div");
+  const hasSwordFlame = rewardSkillTimers.sword > 0;
 
-  slash.className = `slash-effect ${direction}`;
-  slash.textContent = "⚔";
+  slash.className = `slash-effect ${direction}${hasSwordFlame ? " flame" : ""}`;
+  slash.textContent = hasSwordFlame ? "\uD83D\uDD25" : "\u2694";
   slash.style.left = `${keepInside(attackArea.x + attackArea.width / 2 - 17, gameWidth - 34)}px`;
   slash.style.top = `${keepInside(attackArea.y + attackArea.height / 2 - 17, gameHeight - 34)}px`;
   gameArea.appendChild(slash);
@@ -3477,7 +3485,7 @@ function attackRegularEnemy() {
     return false;
   }
 
-  attackCooldown = 0.45;
+  attackCooldown = getCombatCooldown(0.45);
   target.hp = Math.max(0, target.hp - meleeDamage);
   target.stunTimer = 0.35;
   target.state = "stunned";
@@ -3667,15 +3675,22 @@ function collectRewardDrop(reward) {
     toastMessage = result.upgraded ? "Three shards formed a new heart!" : "Heart Shard collected!";
     playPlayerPickupEffect("shard");
   } else if (reward.type === "windLeaf") {
-    rewardSkillTimers.wind = rewardSkillDuration;
-    toastMessage = `Wind boost active for ${rewardSkillDuration}s!`;
+    rewardSkillTimers.wind = windBuffDuration;
+    floatingText = "Wind Boost!";
+    toastMessage = `Wind boost active for ${windBuffDuration}s!`;
   } else if (reward.type === "swordFlame") {
-    rewardSkillTimers.sword = rewardSkillDuration;
-    toastMessage = `Sword Flame active for ${rewardSkillDuration}s!`;
+    rewardSkillTimers.sword = swordBuffDuration;
+    floatingText = "Sword Power!";
+    toastMessage = `Sword Flame active for ${swordBuffDuration}s!`;
+  } else if (reward.type === "focusStar") {
+    rewardSkillTimers.focus = focusBuffDuration;
+    floatingText = "Focus!";
+    toastMessage = `Focus active for ${focusBuffDuration}s!`;
   }
 
   reward.element.remove();
   rewardDrops = rewardDrops.filter((item) => item !== reward);
+  syncActiveSkillEffects();
   showFloatingText(floatingText, player.x + 2, player.y - 10, "reward");
   showToast(toastMessage);
   AudioManager.playSound("coin");
@@ -3751,7 +3766,7 @@ function shootPirateGun(targetX, targetY) {
   });
 
   showMuzzleFlash(playerCenter, vector);
-  gunCooldown = gunCooldownDuration;
+  gunCooldown = getCombatCooldown(gunCooldownDuration);
   AudioManager.playSound("gun");
   showToast("Pirate Gun fired!");
 }
@@ -3893,6 +3908,10 @@ function getMeleeDamage() {
   return (purchasedUpgrades.includes("sharpSword") ? 2 : 1) + (rewardSkillTimers.sword > 0 ? 1 : 0);
 }
 
+function getCombatCooldown(baseCooldown) {
+  return GameLogic.getBuffedCooldown(baseCooldown, rewardSkillTimers.focus > 0);
+}
+
 function activateMysteryFruit(fruit) {
   fruit.collected = true;
   activePowerUp = fruit;
@@ -3958,13 +3977,33 @@ function expirePowerUp() {
 
 function resetRewardSkillTimers() {
   rewardSkillTimers = { wind: 0, sword: 0, focus: 0 };
+  syncActiveSkillEffects();
 }
 
-function updateRewardSkills(deltaTime) {
+function updateActiveSkills(deltaTime) {
+  const expiryMessages = {
+    wind: "Wind faded",
+    sword: "Sword Flame faded",
+    focus: "Focus faded"
+  };
+
   Object.keys(rewardSkillTimers).forEach((skill) => {
+    const wasActive = rewardSkillTimers[skill] > 0;
     rewardSkillTimers[skill] = Math.max(0, rewardSkillTimers[skill] - deltaTime);
+
+    if (wasActive && rewardSkillTimers[skill] === 0) {
+      showToast(expiryMessages[skill]);
+    }
   });
+
+  syncActiveSkillEffects();
   updateActiveSkillBar();
+}
+
+function syncActiveSkillEffects() {
+  playerElement.classList.toggle("buff-wind", rewardSkillTimers.wind > 0);
+  playerElement.classList.toggle("buff-sword", rewardSkillTimers.sword > 0);
+  playerElement.classList.toggle("buff-focus", rewardSkillTimers.focus > 0);
 }
 
 function getActiveFruitText() {
@@ -4533,7 +4572,7 @@ function gameLoop(currentTime) {
     movePlayer(safeDeltaTime);
     moveEnemies(safeDeltaTime);
     updatePowerUp(safeDeltaTime);
-    updateRewardSkills(safeDeltaTime);
+    updateActiveSkills(safeDeltaTime);
     updateBullets(safeDeltaTime);
     updateEnemyProjectiles(safeDeltaTime);
     updateRewardDrops(safeDeltaTime);
