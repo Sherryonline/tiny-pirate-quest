@@ -193,6 +193,22 @@
                 <li>Unlock the final treasure route</li>
               </ol>
             </section>
+            <section class="intro-section treasure-collection" aria-labelledby="treasureCollectionTitle">
+              <span id="treasureCollectionTitle" class="intro-label">Treasure Collection</span>
+              <div class="treasure-collection-grid">
+                <span>&#129517; Compass Pieces <strong id="goldenCompassCount">0/3</strong></span>
+                <span>&#129689;&#10024; Ancient Coins <strong id="ancientCoinCount">0/3</strong></span>
+                <span>&#127894;&#65039; Pirate Badge <strong id="pirateBadgeCount">0/1</strong></span>
+              </div>
+              <div class="skin-picker-row">
+                <label for="skinSelect">Pirate Skin</label>
+                <select id="skinSelect">
+                  <option value="classic">Classic Pirate</option>
+                  <option value="goldenPirate" disabled>Golden Pirate (Locked)</option>
+                </select>
+              </div>
+              <p id="secretRouteStatus" class="secret-route-status">Secret route locked</p>
+            </section>
           </div>
           <p id="continueSaveHint" class="continue-save-hint hidden">Continue from your last saved island progress.</p>
           <div class="intro-actions">
@@ -212,7 +228,7 @@
           <button id="hallOfFameCloseButton" class="hall-close-button" type="button" aria-label="Close Hall of Fame">&times;</button>
           <h2 id="hallOfFameTitle">&#127942; Pirate Hall of Fame</h2>
           <section id="hallCompletionSection" class="hall-completion-section hidden">
-            <p class="hall-victory-message">You found the Grand Treasure and became a legend of the Tiny Sea!</p>
+            <p id="hallVictoryMessage" class="hall-victory-message">You found the Grand Treasure and became a legend of the Tiny Sea!</p>
             <label for="pirateNameInput">Enter your pirate name</label>
             <input id="pirateNameInput" type="text" maxlength="20" placeholder="Enter your pirate name" autocomplete="nickname">
             <button id="saveAchievementButton" type="button">Save Achievement</button>
@@ -223,6 +239,7 @@
               <div class="hall-table-header">
                 <span>Rank</span>
                 <span>Pirate Name</span>
+                <span>Title</span>
                 <span>Completed Date</span>
                 <span>Coins</span>
               </div>

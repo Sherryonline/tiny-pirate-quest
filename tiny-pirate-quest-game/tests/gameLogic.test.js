@@ -350,3 +350,56 @@ test("enemy rewards follow weighted drop table boundaries", () => {
   assert.equal(GameLogic.pickWeightedReward(table, 0.7), "shieldOrb");
   assert.equal(GameLogic.pickWeightedReward(table, 0.8), null);
 });
+
+test("rare treasure drop rates keep rare rewards uncommon", () => {
+  const table = [
+    { type: "goldenCompassPiece", weight: 0.04 },
+    { type: "ancientCoin", weight: 0.05 },
+    { type: "pirateBadge", weight: 0.025 },
+    { type: null, weight: 0.885 }
+  ];
+
+  assert.equal(GameLogic.pickWeightedReward(table, 0.039), "goldenCompassPiece");
+  assert.equal(GameLogic.pickWeightedReward(table, 0.04), "ancientCoin");
+  assert.equal(GameLogic.pickWeightedReward(table, 0.09), "pirateBadge");
+  assert.equal(GameLogic.pickWeightedReward(table, 0.115), null);
+});
+
+test("three Ancient Coins unlock the Golden Pirate skin", () => {
+  let collection = GameLogic.normalizeRareCollection();
+  collection = GameLogic.collectRareTreasure(collection, "ancientCoin");
+  collection = GameLogic.collectRareTreasure(collection, "ancientCoin");
+  collection = GameLogic.collectRareTreasure(collection, "ancientCoin");
+
+  assert.equal(collection.ancientCoins, 3);
+  assert.deepEqual(collection.unlockedSkins, ["classic", "goldenPirate"]);
+  assert.equal(GameLogic.collectRareTreasure(collection, "ancientCoin").ancientCoins, 3);
+});
+
+test("three Compass Pieces unlock the secret ending and badge is permanent", () => {
+  let collection = GameLogic.normalizeRareCollection();
+  collection = GameLogic.collectRareTreasure(collection, "goldenCompassPiece");
+  collection = GameLogic.collectRareTreasure(collection, "goldenCompassPiece");
+  collection = GameLogic.collectRareTreasure(collection, "goldenCompassPiece");
+  collection = GameLogic.collectRareTreasure(collection, "pirateBadge");
+
+  assert.equal(collection.goldenCompassPieces, 3);
+  assert.equal(collection.secretEndingUnlocked, true);
+  assert.equal(collection.pirateBadge, true);
+});
+
+test("locked skin selection falls back to the classic pirate", () => {
+  const locked = GameLogic.normalizeRareCollection({
+    selectedSkin: "goldenPirate",
+    unlockedSkins: ["classic", "goldenPirate"],
+    secretEndingUnlocked: true
+  });
+  const unlocked = GameLogic.normalizeRareCollection({
+    ancientCoins: 3,
+    selectedSkin: "goldenPirate"
+  });
+
+  assert.equal(locked.selectedSkin, "classic");
+  assert.equal(locked.secretEndingUnlocked, false);
+  assert.equal(unlocked.selectedSkin, "goldenPirate");
+});

@@ -392,6 +392,41 @@
     return null;
   }
 
+  function normalizeRareCollection(collection) {
+    const source = collection && typeof collection === "object" ? collection : {};
+    const goldenCompassPieces = Math.min(3, Math.max(0, Math.floor(Number(source.goldenCompassPieces) || 0)));
+    const ancientCoins = Math.min(3, Math.max(0, Math.floor(Number(source.ancientCoins) || 0)));
+    const pirateBadge = Boolean(source.pirateBadge);
+    const unlockedSkins = ["classic"];
+
+    if (ancientCoins >= 3) {
+      unlockedSkins.push("goldenPirate");
+    }
+
+    return {
+      goldenCompassPieces,
+      ancientCoins,
+      pirateBadge,
+      unlockedSkins,
+      selectedSkin: unlockedSkins.includes(source.selectedSkin) ? source.selectedSkin : "classic",
+      secretEndingUnlocked: goldenCompassPieces >= 3
+    };
+  }
+
+  function collectRareTreasure(collection, rewardType) {
+    const next = normalizeRareCollection(collection);
+
+    if (rewardType === "goldenCompassPiece") {
+      next.goldenCompassPieces = Math.min(3, next.goldenCompassPieces + 1);
+    } else if (rewardType === "ancientCoin") {
+      next.ancientCoins = Math.min(3, next.ancientCoins + 1);
+    } else if (rewardType === "pirateBadge") {
+      next.pirateBadge = true;
+    }
+
+    return normalizeRareCollection(next);
+  }
+
   return {
     isTouching,
     keepInside,
@@ -421,6 +456,8 @@
     sanitizePirateName,
     sortLeaderboardRecords,
     getTopLeaderboard,
-    pickWeightedReward
+    pickWeightedReward,
+    normalizeRareCollection,
+    collectRareTreasure
   };
 });

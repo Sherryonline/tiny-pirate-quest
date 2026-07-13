@@ -87,6 +87,12 @@ const hallViewButton = document.getElementById("hallViewButton");
 const hallOfFameCloseButton = document.getElementById("hallOfFameCloseButton");
 const hallOfFameButton = document.getElementById("hallOfFameButton");
 const introHallOfFameButton = document.getElementById("introHallOfFameButton");
+const hallVictoryMessage = document.getElementById("hallVictoryMessage");
+const goldenCompassCount = document.getElementById("goldenCompassCount");
+const ancientCoinCount = document.getElementById("ancientCoinCount");
+const pirateBadgeCount = document.getElementById("pirateBadgeCount");
+const secretRouteStatus = document.getElementById("secretRouteStatus");
+const skinSelect = document.getElementById("skinSelect");
 
 const gameWidth = 720;
 const gameHeight = 480;
@@ -119,6 +125,7 @@ const chestPosition = { x: 626, y: 398 };
 const playerStartPosition = { x: 46, y: 400 };
 const saveKey = "tinyPirateQuestSave";
 const leaderboardKey = "tinyPirateQuestLeaderboard";
+const rareCollectionKey = "tinyPirateQuestRareCollection";
 const audioPreferenceKey = "tinyPirateQuestAudioMuted";
 const audioVolumePreferenceKey = "tinyPirateQuestAudioVolume";
 
@@ -171,6 +178,7 @@ let finalAdventureCompleted = false;
 let bossDefeatToken = 0;
 let introActive = true;
 let defeatedEnemyIndexes = [];
+let rareCollection = GameLogic.normalizeRareCollection();
 let audioContext = null;
 let masterGain = null;
 let sfxGain = null;
@@ -460,6 +468,10 @@ function playSound(name) {
   } else if (name === "weakness") {
     playTone(620, 0.06, "square", 0.08, 880);
     setTimeout(() => playTone(1240, 0.1, "sine", 0.08), 60);
+  } else if (name === "rareTreasure") {
+    [784, 1046, 1318].forEach((frequency, index) => {
+      setTimeout(() => playTone(frequency, 0.13, "sine", 0.09), index * 70);
+    });
   } else if (name === "bossWarning") {
     playTone(170, 0.12, "triangle", 0.1);
     setTimeout(() => playTone(130, 0.14, "triangle", 0.1), 130);
@@ -783,8 +795,18 @@ const rewardTypes = {
   heartShard: { icon: "\uD83D\uDC97", floatingText: "Heart Shard!", toast: "Heart Shard collected!" },
   windLeaf: { icon: "\uD83C\uDF43", floatingText: "Wind Leaf!", toast: "Wind Leaf collected!" },
   swordFlame: { icon: "\uD83D\uDD25", floatingText: "Sword Flame!", toast: "Sword Flame collected!" },
-  focusStar: { icon: "\u2B50", floatingText: "Focus!", toast: "Focus Star collected!" }
+  focusStar: { icon: "\u2B50", floatingText: "Focus!", toast: "Focus Star collected!" },
+  goldenCompassPiece: { icon: "\uD83E\uDDED", floatingText: "Compass Piece!", toast: "Golden Compass Piece collected!", rare: true },
+  ancientCoin: { icon: "\uD83E\uDE99\u2728", floatingText: "Ancient Coin!", toast: "Ancient Coin collected!", rare: true },
+  pirateBadge: { icon: "\uD83C\uDF96\uFE0F", floatingText: "Pirate Badge!", toast: "Pirate Badge collected!", rare: true }
 };
+
+const rareTreasureDropTable = [
+  { type: "goldenCompassPiece", weight: 0.04 },
+  { type: "ancientCoin", weight: 0.05 },
+  { type: "pirateBadge", weight: 0.025 },
+  { type: null, weight: 0.885 }
+];
 
 const islandRewardTables = {
   coconut: [
@@ -1183,6 +1205,66 @@ function formatLeaderboardDate(date) {
   }
 }
 
+function loadRareCollection() {
+  try {
+    const savedCollection = JSON.parse(localStorage.getItem(rareCollectionKey) || "null");
+    return GameLogic.normalizeRareCollection(savedCollection);
+  } catch (error) {
+    return GameLogic.normalizeRareCollection();
+  }
+}
+
+function saveRareCollection() {
+  try {
+    localStorage.setItem(rareCollectionKey, JSON.stringify(rareCollection));
+    return true;
+  } catch (error) {
+    return false;
+  }
+}
+
+function updateTreasureCollectionUi() {
+  goldenCompassCount.textContent = `${rareCollection.goldenCompassPieces}/3`;
+  ancientCoinCount.textContent = `${rareCollection.ancientCoins}/3`;
+  pirateBadgeCount.textContent = `${rareCollection.pirateBadge ? 1 : 0}/1`;
+  secretRouteStatus.textContent = rareCollection.secretEndingUnlocked
+    ? "Secret route unlocked"
+    : "Secret route locked";
+  secretRouteStatus.classList.toggle("unlocked", rareCollection.secretEndingUnlocked);
+
+  const goldenOption = skinSelect.querySelector('option[value="goldenPirate"]');
+  const goldenUnlocked = rareCollection.unlockedSkins.includes("goldenPirate");
+  goldenOption.disabled = !goldenUnlocked;
+  goldenOption.textContent = goldenUnlocked ? "Golden Pirate" : "Golden Pirate (Locked)";
+  skinSelect.value = rareCollection.selectedSkin;
+}
+
+function applySelectedSkin() {
+  playerElement.classList.toggle("skin-golden", rareCollection.selectedSkin === "goldenPirate");
+}
+
+function restoreRareCollection() {
+  rareCollection = loadRareCollection();
+  updateTreasureCollectionUi();
+  applySelectedSkin();
+}
+
+function selectPirateSkin() {
+  if (!rareCollection.unlockedSkins.includes(skinSelect.value)) {
+    skinSelect.value = rareCollection.selectedSkin;
+    showToast("That pirate skin is still locked.");
+    return;
+  }
+
+  rareCollection = GameLogic.normalizeRareCollection({
+    ...rareCollection,
+    selectedSkin: skinSelect.value
+  });
+  saveRareCollection();
+  applySelectedSkin();
+  showToast(skinSelect.value === "goldenPirate" ? "Golden Pirate Skin equipped!" : "Classic Pirate Skin equipped!");
+}
+
 function normalizeLeaderboardRecord(record) {
   if (!record || typeof record !== "object") {
     return null;
@@ -1202,7 +1284,8 @@ function normalizeLeaderboardRecord(record) {
       : formatLeaderboardDate(new Date(completedAt)),
     completedAt,
     coins: Number.isFinite(coins) ? Math.max(0, Math.floor(coins)) : 0,
-    mapFragments: Number.isFinite(fragments) ? Math.max(0, Math.floor(fragments)) : 0
+    mapFragments: Number.isFinite(fragments) ? Math.max(0, Math.floor(fragments)) : 0,
+    title: record.title === "Pirate Legend" ? "Pirate Legend" : ""
   };
 }
 
@@ -1246,7 +1329,8 @@ function createLeaderboardRecord(playerName) {
     completedDate: formatLeaderboardDate(completedAt),
     completedAt: completedAt.toISOString(),
     coins: totalCoins,
-    mapFragments
+    mapFragments,
+    title: rareCollection.pirateBadge ? "Pirate Legend" : ""
   };
 }
 
@@ -1264,21 +1348,24 @@ function renderLeaderboard(records = loadLeaderboard()) {
     const row = document.createElement("div");
     const rank = document.createElement("span");
     const playerName = document.createElement("span");
+    const title = document.createElement("span");
     const completedDate = document.createElement("span");
     const coins = document.createElement("span");
 
     row.className = "hall-leaderboard-row";
     rank.className = "hall-rank";
     playerName.className = "hall-player-name";
+    title.className = "hall-title";
     completedDate.className = "hall-date";
     coins.className = "hall-coins";
 
     rank.textContent = getLeaderboardRank(index);
     playerName.textContent = record.playerName;
+    title.textContent = record.title || "-";
     completedDate.textContent = record.completedDate;
     coins.textContent = `${record.coins} coins`;
 
-    row.append(rank, playerName, completedDate, coins);
+    row.append(rank, playerName, title, completedDate, coins);
     hallLeaderboardRows.appendChild(row);
   });
 }
@@ -3666,13 +3753,13 @@ function defeatEnemy(enemy) {
   showFloatingText("Defeated!", enemy.x - 4, enemy.y - 14, "defeat");
 
   if (!enemy.rewarded) {
-    const reward = handleEnemyDefeated(enemy);
+    const rewards = handleEnemyDefeated(enemy);
     const comboReward = consumeComboBonusCoin(enemy);
     if (!defeatedEnemyIndexes.includes(enemy.spawnIndex)) {
       defeatedEnemyIndexes.push(enemy.spawnIndex);
     }
     showToast("Enemy defeated!");
-    updateHud(reward || comboReward ? `${enemy.name} defeated! A reward dropped.` : `${enemy.name} defeated!`);
+    updateHud(rewards.length > 0 || comboReward ? `${enemy.name} defeated! A reward dropped.` : `${enemy.name} defeated!`);
     saveGame();
   }
 
@@ -3717,16 +3804,27 @@ function handleEnemyDefeated(enemy) {
   enemy.rewarded = claim.rewarded;
 
   if (!claim.shouldDrop) {
-    return null;
+    return [];
   }
 
+  const rewards = [];
   const rewardType = getEnemyReward(enemy);
 
   if (rewardType) {
-    return spawnRewardDrop(enemy.x, enemy.y, rewardType);
+    rewards.push(spawnRewardDrop(enemy.x, enemy.y, rewardType));
   }
 
-  return null;
+  const rareRewardType = GameLogic.pickWeightedReward(rareTreasureDropTable, Math.random());
+
+  if (rareRewardType) {
+    const rareReward = spawnRewardDrop(enemy.x + 20, enemy.y - 6, rareRewardType);
+    if (rareReward) {
+      rewards.push(rareReward);
+      showToast("Rare treasure found!");
+    }
+  }
+
+  return rewards.filter(Boolean);
 }
 
 function getEnemyReward(enemy) {
@@ -3743,7 +3841,7 @@ function spawnRewardDrop(x, y, rewardType, expiresAt = Date.now() + rewardDropLi
   }
 
   const element = document.createElement("div");
-  element.className = `reward-drop reward-${rewardType}`;
+  element.className = `reward-drop reward-${rewardType}${config.rare ? " rare-drop" : ""}`;
   element.textContent = config.icon;
   element.setAttribute("aria-label", rewardType);
   gameArea.appendChild(element);
@@ -3830,6 +3928,23 @@ function collectRewardDrop(reward) {
     rewardSkillTimers = GameLogic.refreshBuffTimer(rewardSkillTimers, "focus", focusBuffDuration);
     floatingText = "Focus!";
     toastMessage = `Focus active for ${focusBuffDuration}s!`;
+  } else if (config.rare) {
+    const previousCollection = rareCollection;
+    rareCollection = GameLogic.collectRareTreasure(rareCollection, reward.type);
+
+    if (reward.type === "ancientCoin" && previousCollection.ancientCoins < 3 && rareCollection.ancientCoins === 3) {
+      floatingText = "Golden Skin!";
+      toastMessage = "Golden Pirate Skin unlocked!";
+    } else if (reward.type === "goldenCompassPiece" && !previousCollection.secretEndingUnlocked && rareCollection.secretEndingUnlocked) {
+      floatingText = "Secret Route!";
+      toastMessage = "Golden Compass complete! Secret route unlocked.";
+    } else if (reward.type === "pirateBadge" && !previousCollection.pirateBadge) {
+      floatingText = "Pirate Badge!";
+      toastMessage = "Pirate Legend title unlocked!";
+    }
+
+    saveRareCollection();
+    updateTreasureCollectionUi();
   }
 
   reward.element.remove();
@@ -3837,7 +3952,7 @@ function collectRewardDrop(reward) {
   syncActiveSkillEffects();
   showFloatingText(floatingText, player.x + 2, player.y - 10, "reward");
   showToast(toastMessage);
-  AudioManager.playSound("coin");
+  AudioManager.playSound(config.rare ? "rareTreasure" : "coin");
   updateHud(toastMessage);
   saveGame();
 }
@@ -4703,6 +4818,16 @@ function showSailingTransition(islandName, onComplete) {
 }
 
 function completeFinalAdventure() {
+  const victoryMessages = ["You found the Grand Treasure and became a legend of the Tiny Sea!"];
+
+  if (rareCollection.secretEndingUnlocked) {
+    victoryMessages.push("The Golden Compass revealed the hidden treasure of the Tiny Sea!");
+  }
+
+  if (rareCollection.pirateBadge) {
+    victoryMessages.push("Your Pirate Badge shines as your legend begins.");
+  }
+
   gameOver = true;
   finalAdventureCompleted = true;
   finalIslandActive = false;
@@ -4710,7 +4835,8 @@ function completeFinalAdventure() {
   overlayAction = "restart";
   clearSavedGame();
   gameOverlay.classList.add("hidden");
-  updateHud("You found the Grand Treasure and became a legend of the Tiny Sea!");
+  hallVictoryMessage.textContent = victoryMessages.join(" ");
+  updateHud(victoryMessages.join(" "));
   showToast("Grand Treasure found!");
   showHallOfFame({ completion: true });
   setMusicMode("victory");
@@ -4945,10 +5071,12 @@ hallPlayAgainButton.addEventListener("click", playAgainFromHallOfFame);
 hallViewButton.addEventListener("click", refreshHallOfFame);
 hallOfFameButton.addEventListener("click", () => showHallOfFame());
 introHallOfFameButton.addEventListener("click", () => showHallOfFame());
+skinSelect.addEventListener("change", selectPirateSkin);
 testSoundButton.addEventListener("click", () => AudioManager.testSound());
 muteButton.addEventListener("click", AudioManager.toggleMute);
 gameArea.addEventListener("click", handleGameAreaClick);
 
+restoreRareCollection();
 startGame({ clearSave: false });
 updateContinueControls();
 syncMuteButton();
