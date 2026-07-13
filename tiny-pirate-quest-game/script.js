@@ -93,6 +93,8 @@ const ancientCoinCount = document.getElementById("ancientCoinCount");
 const pirateBadgeCount = document.getElementById("pirateBadgeCount");
 const secretRouteStatus = document.getElementById("secretRouteStatus");
 const skinSelect = document.getElementById("skinSelect");
+const parrotElement = document.getElementById("parrot");
+const parrotSpeech = document.getElementById("parrotSpeech");
 
 const gameWidth = 720;
 const gameHeight = 480;
@@ -111,6 +113,11 @@ const ghostBulletSpeed = 250;
 const enemyProjectileSpeed = 230;
 const rewardDropSize = 28;
 const rewardDropLifetime = 10;
+const parrotSize = 28;
+const parrotPickupRadius = 60;
+const parrotPathRadius = 110;
+const parrotWarningCooldownDuration = 5;
+const parrotHintDelay = 12;
 const maxShieldCharges = 3;
 const maxPlayerHealth = 6;
 const heartShardsPerUpgrade = 3;
@@ -179,6 +186,13 @@ let bossDefeatToken = 0;
 let introActive = true;
 let defeatedEnemyIndexes = [];
 let rareCollection = GameLogic.normalizeRareCollection();
+let parrotUnlocked = false;
+let parrotName = "Polly";
+let parrot = { x: playerStartPosition.x, y: playerStartPosition.y };
+let parrotWarningCooldown = 0;
+let parrotHintCooldown = 0;
+let timeSinceCoinCollected = 0;
+let parrotSpeechTimeout = null;
 let audioContext = null;
 let masterGain = null;
 let sfxGain = null;
@@ -1015,7 +1029,7 @@ const sideQuestConfigs = [
     itemName: "shells",
     itemIcon: "🐚",
     target: 3,
-    reward: "3 coins",
+    reward: "3 coins and Polly the parrot",
     positions: [
       { x: 150, y: 410 },
       { x: 255, y: 170 },
@@ -1109,6 +1123,8 @@ function startGame(options = {}) {
   mapFragments = 0;
   completedIslands = [];
   totalCoins = 0;
+  parrotUnlocked = false;
+  parrotName = "Polly";
   maxHealth = baseMaxHealth;
   shieldCharges = 0;
   heartShardCount = 0;
@@ -1452,6 +1468,8 @@ function saveGame() {
     crew: [...crew],
     purchasedUpgrades: [...purchasedUpgrades],
     sideQuestState: sideQuestState.map((quest) => ({ ...quest })),
+    parrotUnlocked,
+    parrotName,
     routeUnlocked,
     routeQuestionShown,
     bossActive,
@@ -1504,6 +1522,11 @@ function restoreGameState(savedState) {
       rewarded: Boolean(savedQuest && savedQuest.rewarded)
     };
   });
+  const coconutQuest = sideQuestState.find((quest) => quest.island === "Coconut Island");
+  parrotUnlocked = Boolean(savedState.parrotUnlocked || (coconutQuest && coconutQuest.rewarded));
+  parrotName = typeof savedState.parrotName === "string" && savedState.parrotName.trim()
+    ? savedState.parrotName.trim().slice(0, 20)
+    : "Polly";
   ghostPirateDefeated = Boolean(savedState.ghostPirateDefeated);
   activePowerUp = null;
   powerUpTimer = 0;
@@ -1629,6 +1652,7 @@ function startLevel(options = {}) {
   player = { ...playerStartPosition };
   playerX = player.x;
   playerY = player.y;
+  resetParrotForLevel();
   score = 0;
   health = maxHealth;
   gameOver = false;
@@ -1870,6 +1894,7 @@ function startFinalTreasureIsland(options = {}) {
   player = { ...playerStartPosition };
   playerX = player.x;
   playerY = player.y;
+  resetParrotForLevel();
   score = 0;
   gameOver = false;
   enemyHitCooldown = 0;
@@ -2367,9 +2392,159 @@ function showToast(message) {
   setTimeout(() => toast.remove(), 1800);
 }
 
+function resetParrotForLevel() {
+  const anchor = player || playerStartPosition;
+  parrot = {
+    x: keepInside(anchor.x - 30, gameWidth - parrotSize),
+    y: keepInside(anchor.y - 24, gameHeight - parrotSize)
+  };
+  parrotWarningCooldown = 0;
+  parrotHintCooldown = 6;
+  timeSinceCoinCollected = 0;
+  hideParrotSpeech();
+  parrotElement.classList.toggle("hidden", !parrotUnlocked);
+  parrotElement.setAttribute("aria-label", `${parrotName} the pirate parrot`);
+}
+
+function hideParrotSpeech() {
+  if (parrotSpeechTimeout) {
+    clearTimeout(parrotSpeechTimeout);
+    parrotSpeechTimeout = null;
+  }
+
+  parrotSpeech.classList.add("hidden");
+}
+
+function showParrotSpeech(message) {
+  if (!parrotUnlocked || !message) {
+    return;
+  }
+
+  if (parrotSpeechTimeout) {
+    clearTimeout(parrotSpeechTimeout);
+  }
+
+  parrotSpeech.textContent = message;
+  parrotSpeech.classList.remove("hidden");
+  parrotSpeechTimeout = setTimeout(() => {
+    parrotSpeech.classList.add("hidden");
+    parrotSpeechTimeout = null;
+  }, 2000);
+}
+
+function warnWithParrot(message) {
+  if (!parrotUnlocked || parrotWarningCooldown > 0) {
+    return;
+  }
+
+  parrotWarningCooldown = parrotWarningCooldownDuration;
+  parrotHintCooldown = Math.max(parrotHintCooldown, 5);
+  showParrotSpeech(message);
+}
+
+function getParrotFollowOffset() {
+  if (lastDirection === "left") {
+    return { x: 38, y: -24 };
+  }
+  if (lastDirection === "up") {
+    return { x: -24, y: 38 };
+  }
+  if (lastDirection === "down") {
+    return { x: -24, y: -38 };
+  }
+  return { x: -32, y: -24 };
+}
+
+function updateParrot(deltaTime) {
+  if (!parrotUnlocked) {
+    return;
+  }
+
+  parrotWarningCooldown = Math.max(0, parrotWarningCooldown - deltaTime);
+  parrotHintCooldown = Math.max(0, parrotHintCooldown - deltaTime);
+  timeSinceCoinCollected += deltaTime;
+  parrot = GameLogic.getCompanionFollowPosition(
+    parrot,
+    player,
+    getParrotFollowOffset(),
+    deltaTime,
+    { maxX: gameWidth - parrotSize, maxY: gameHeight - parrotSize }
+  );
+
+  collectNearbyItemWithParrot();
+  updateParrotHint();
+}
+
+function collectNearbyItemWithParrot() {
+  const nearbyCoin = coins.find((coin) => !coin.collected && GameLogic.canCompanionCollect(
+    parrot,
+    coin,
+    player,
+    parrotPickupRadius,
+    parrotPathRadius
+  ));
+
+  if (nearbyCoin) {
+    showFloatingText("Polly found a coin!", parrot.x - 18, parrot.y - 12, "reward");
+    showParrotSpeech("Found a coin!");
+    collectCoin(nearbyCoin, "parrot");
+  }
+
+  const nearbyReward = rewardDrops.find((reward) => !reward.collected && GameLogic.canCompanionCollect(
+    parrot,
+    reward,
+    player,
+    parrotPickupRadius,
+    parrotPathRadius
+  ));
+
+  if (nearbyReward) {
+    showFloatingText("Polly found a reward!", parrot.x - 20, parrot.y - 12, "reward");
+    showParrotSpeech("Treasure spotted!");
+    collectRewardDrop(nearbyReward);
+  }
+}
+
+function updateParrotHint() {
+  if (parrotHintCooldown > 0 || parrotWarningCooldown > 0) {
+    return;
+  }
+
+  const sideQuestConfig = getCurrentSideQuestConfig();
+  const sideQuestProgress = getCurrentSideQuestState();
+  let hint = "";
+
+  if (health <= Math.max(1, Math.floor(maxHealth / 3))) {
+    hint = "Low on hearts. Find a heart!";
+  } else if (bossActive && boss && boss.phase === "rest") {
+    hint = "Boss is weak after resting!";
+  } else if (sideQuestConfig && sideQuestConfig.island === "Coconut Island" && sideQuestProgress && sideQuestProgress.progress < sideQuestConfig.target) {
+    hint = "Look for shells near the beach!";
+  } else if (timeSinceCoinCollected >= 20) {
+    hint = "Dash with Shift to explore faster!";
+    timeSinceCoinCollected = 0;
+  } else if (timeSinceCoinCollected >= parrotHintDelay) {
+    hint = "Try collecting all coins!";
+  }
+
+  if (hint) {
+    showParrotSpeech(hint);
+    parrotHintCooldown = 10;
+  }
+}
+
 function drawSprites() {
   playerElement.style.left = `${player.x}px`;
   playerElement.style.top = `${player.y}px`;
+
+  parrotElement.classList.toggle("hidden", !parrotUnlocked);
+  if (parrotUnlocked) {
+    parrotElement.style.left = `${parrot.x}px`;
+    parrotElement.style.top = `${parrot.y}px`;
+    parrotElement.classList.toggle("near-left", parrot.x < 100);
+    parrotElement.classList.toggle("near-right", parrot.x > gameWidth - 130);
+    parrotElement.classList.toggle("near-top", parrot.y < 70);
+  }
 
   enemies.forEach((enemy) => {
     enemy.element.style.left = `${enemy.x}px`;
@@ -2674,6 +2849,28 @@ function rectanglesOverlap(a, b) {
   );
 }
 
+function collectCoin(coin, collector = "player") {
+  if (!coin || coin.collected || finalIslandActive) {
+    return false;
+  }
+
+  const level = levels[currentLevelIndex];
+  coin.collected = true;
+  score += 1;
+  timeSinceCoinCollected = 0;
+  AudioManager.playSound("coin");
+  showToast(collector === "parrot" ? "Polly found a coin!" : "Coin collected!");
+  saveGame();
+
+  if (score === level.coinCount) {
+    startBossEvent(level);
+  } else {
+    updateHud(collector === "parrot" ? "Polly brought you a nearby coin!" : getCoinStatusMessage(level));
+  }
+
+  return true;
+}
+
 function checkCollisions(deltaTime) {
   if (enemyHitCooldown > 0) {
     enemyHitCooldown = Math.max(0, enemyHitCooldown - deltaTime);
@@ -2700,16 +2897,7 @@ function checkCollisions(deltaTime) {
 
   coins.forEach((coin) => {
     if (!coin.collected && isTouching(player, coin)) {
-      coin.collected = true;
-      score += 1;
-      AudioManager.playSound("coin");
-      showToast("Coin collected!");
-      saveGame();
-      if (score === level.coinCount) {
-        startBossEvent(level);
-      } else {
-        updateHud(getCoinStatusMessage(level));
-      }
+      collectCoin(coin);
     }
   });
 
@@ -2895,8 +3083,11 @@ function grantSideQuestReward(config, state) {
 
   if (config.island === "Coconut Island") {
     totalCoins += 3;
-    showToast("Side quest complete! +3 coins");
-    updateHud("Shell Scout rewarded you with 3 coins.");
+    parrotUnlocked = true;
+    resetParrotForLevel();
+    showParrotSpeech("Polly reporting for duty!");
+    showToast("Polly the parrot joined your crew!");
+    updateHud("Shell Scout rewarded you with 3 coins and Polly the parrot.");
     saveGame();
     return;
   }
@@ -3016,6 +3207,7 @@ function updateBossTimers(deltaTime) {
       boss.element.classList.remove("invulnerable");
       boss.element.classList.add("reforming");
       showReformWarning();
+      warnWithParrot("Dodge now!");
       showToast("Fog Ghost is reforming!");
       AudioManager.playSound("bossWarning");
     }
@@ -3181,6 +3373,7 @@ function updateCrabCharge(deltaTime) {
   boss.crabChargeWarningTimer = boss.chargeWarning;
   boss.crabChargeCooldown = boss.hp <= 2 ? boss.chargeCooldown * 0.78 : boss.chargeCooldown;
   boss.element.classList.add("dash-warning");
+  warnWithParrot("Watch out!");
   AudioManager.playSound("bossWarning");
   showCrabChargeWarning();
 }
@@ -3214,6 +3407,7 @@ function updateLavaBeastBurst(deltaTime) {
   }
 
   boss.lavaBurstCooldown = boss.hp <= 4 ? boss.lavaBurstEnragedCooldown : boss.lavaBurstBaseCooldown;
+  warnWithParrot("Lava incoming!");
   showToast("Lava burst incoming!");
   AudioManager.playSound("bossWarning");
 }
@@ -3316,6 +3510,7 @@ function updateGhostPirateDash(deltaTime) {
   boss.warningAttackTimer = boss.dashWarning;
   boss.dashAttackCooldown = boss.dashCooldown;
   boss.element.classList.add("dash-warning");
+  warnWithParrot("Dodge now!");
   AudioManager.playSound("bossWarning");
   showBossDashWarning();
 }
@@ -3341,6 +3536,7 @@ function updateGhostPirateBullets(deltaTime) {
   const distance = Math.hypot(dx, dy) || 1;
 
   createGhostBullet(dx / distance, dy / distance);
+  warnWithParrot("Watch out!");
   boss.ghostBulletCooldown = boss.bulletCooldown;
 }
 
@@ -4387,6 +4583,7 @@ function showRouteQuestion(level) {
   });
 
   routePanel.classList.remove("hidden");
+  showParrotSpeech("Read the clue carefully!");
   resetMovementKeys();
   updateQuestPanel();
   updateMusicForGameState();
@@ -4943,6 +5140,7 @@ function gameLoop(currentTime) {
     updateBullets(safeDeltaTime);
     updateEnemyProjectiles(safeDeltaTime);
     updateRewardDrops(safeDeltaTime);
+    updateParrot(safeDeltaTime);
     checkCollisions(safeDeltaTime);
     updateBoss(safeDeltaTime);
     drawSprites();

@@ -427,6 +427,24 @@
     return normalizeRareCollection(next);
   }
 
+  function getCompanionFollowPosition(companion, target, offset, deltaTime, bounds) {
+    const targetX = target.x + offset.x;
+    const targetY = target.y + offset.y;
+    const distance = Math.hypot(targetX - companion.x, targetY - companion.y);
+    const responsiveness = distance > 120 ? 12 : 5;
+    const followAmount = 1 - Math.exp(-responsiveness * Math.max(0, deltaTime));
+
+    return {
+      x: keepInside(companion.x + (targetX - companion.x) * followAmount, bounds.maxX),
+      y: keepInside(companion.y + (targetY - companion.y) * followAmount, bounds.maxY)
+    };
+  }
+
+  function canCompanionCollect(companion, item, player, pickupRadius, pathRadius) {
+    return Math.hypot(companion.x - item.x, companion.y - item.y) <= pickupRadius &&
+      Math.hypot(player.x - item.x, player.y - item.y) <= pathRadius;
+  }
+
   return {
     isTouching,
     keepInside,
@@ -458,6 +476,8 @@
     getTopLeaderboard,
     pickWeightedReward,
     normalizeRareCollection,
-    collectRareTreasure
+    collectRareTreasure,
+    getCompanionFollowPosition,
+    canCompanionCollect
   };
 });

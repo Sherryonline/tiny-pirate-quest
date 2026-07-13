@@ -403,3 +403,33 @@ test("locked skin selection falls back to the classic pirate", () => {
   assert.equal(locked.secretEndingUnlocked, false);
   assert.equal(unlocked.selectedSkin, "goldenPirate");
 });
+
+test("companion follows smoothly and catches up without leaving the map", () => {
+  const normalStep = GameLogic.getCompanionFollowPosition(
+    { x: 20, y: 20 },
+    { x: 100, y: 100 },
+    { x: -30, y: -24 },
+    0.1,
+    { maxX: 692, maxY: 452 }
+  );
+  const edgeStep = GameLogic.getCompanionFollowPosition(
+    { x: 680, y: 440 },
+    { x: 720, y: 480 },
+    { x: 30, y: 30 },
+    1,
+    { maxX: 692, maxY: 452 }
+  );
+
+  assert.ok(normalStep.x > 20 && normalStep.x < 70);
+  assert.ok(normalStep.y > 20 && normalStep.y < 76);
+  assert.deepEqual(edgeStep, { x: 692, y: 452 });
+});
+
+test("companion pickup requires both pet range and nearby player path", () => {
+  const parrot = { x: 100, y: 100 };
+  const player = { x: 130, y: 100 };
+
+  assert.equal(GameLogic.canCompanionCollect(parrot, { x: 150, y: 100 }, player, 60, 110), true);
+  assert.equal(GameLogic.canCompanionCollect(parrot, { x: 170, y: 100 }, player, 60, 110), false);
+  assert.equal(GameLogic.canCompanionCollect(parrot, { x: 50, y: 100 }, { x: 300, y: 100 }, 60, 110), false);
+});
