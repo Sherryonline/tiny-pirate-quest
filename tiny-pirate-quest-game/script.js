@@ -11,6 +11,12 @@ const fragmentsElement = document.getElementById("fragments");
 const crewElement = document.getElementById("crew");
 const activeFruitElement = document.getElementById("activeFruit");
 const heartHealthElement = document.getElementById("heartHealth");
+const activeSkillBar = document.getElementById("activeSkillBar");
+const skillShield = document.getElementById("skillShield");
+const skillShards = document.getElementById("skillShards");
+const skillWind = document.getElementById("skillWind");
+const skillSword = document.getElementById("skillSword");
+const skillFocus = document.getElementById("skillFocus");
 const questPanel = document.querySelector(".quest-panel");
 const questIslandElement = document.getElementById("questIsland");
 const questObjectiveElement = document.getElementById("questObjective");
@@ -94,6 +100,9 @@ const ghostBulletSpeed = 250;
 const enemyProjectileSpeed = 230;
 const rewardDropSize = 28;
 const rewardDropLifetime = 10;
+const maxShieldCharges = 3;
+const heartShardsPerUpgrade = 3;
+const rewardSkillDuration = 8;
 const dashDistance = 90;
 const dashCooldownDuration = 2;
 const chestPosition = { x: 626, y: 398 };
@@ -142,6 +151,8 @@ let lastDirection = "right";
 let activePowerUp = null;
 let powerUpTimer = 0;
 let shieldCharges = 0;
+let heartShardCount = 0;
+let rewardSkillTimers = { wind: 0, sword: 0, focus: 0 };
 let finalIslandActive = false;
 let ghostPirateDefeated = false;
 let finalAdventureCompleted = false;
@@ -731,6 +742,7 @@ const rewardTypes = {
   coin: { icon: "\uD83E\uDE99", floatingText: "+1 Coin", toast: "Coin reward collected!" },
   heart: { icon: "\u2764\uFE0F", floatingText: "+1 HP", toast: "Heart reward collected!" },
   shieldOrb: { icon: "\uD83D\uDEE1\uFE0F", floatingText: "Shield +1", toast: "Shield charge +1!" },
+  heartShard: { icon: "\uD83D\uDC97", floatingText: "Heart Shard!", toast: "Heart Shard collected!" },
   windLeaf: { icon: "\uD83C\uDF43", floatingText: "Wind Leaf!", toast: "Wind Leaf collected!" },
   swordFlame: { icon: "\uD83D\uDD25", floatingText: "Sword Flame!", toast: "Sword Flame collected!" }
 };
@@ -740,25 +752,29 @@ const enemyRewardTables = {
     { type: "coin", weight: 0.5 },
     { type: "heart", weight: 0.2 },
     { type: "shieldOrb", weight: 0.1 },
-    { type: null, weight: 0.2 }
+    { type: "heartShard", weight: 0.1 },
+    { type: null, weight: 0.1 }
   ],
   fogSpirit: [
     { type: "coin", weight: 0.4 },
     { type: "windLeaf", weight: 0.25 },
     { type: "shieldOrb", weight: 0.2 },
-    { type: null, weight: 0.15 }
+    { type: "heartShard", weight: 0.1 },
+    { type: null, weight: 0.05 }
   ],
   fireImp: [
     { type: "coin", weight: 0.4 },
     { type: "swordFlame", weight: 0.25 },
     { type: "heart", weight: 0.2 },
-    { type: null, weight: 0.15 }
+    { type: "heartShard", weight: 0.1 },
+    { type: null, weight: 0.05 }
   ],
   generic: [
     { type: "coin", weight: 0.45 },
     { type: "heart", weight: 0.2 },
     { type: "shieldOrb", weight: 0.15 },
-    { type: null, weight: 0.2 }
+    { type: "heartShard", weight: 0.1 },
+    { type: null, weight: 0.1 }
   ]
 };
 
@@ -1021,6 +1037,9 @@ function startGame(options = {}) {
   mapFragments = 0;
   totalCoins = 0;
   maxHealth = baseMaxHealth;
+  shieldCharges = 0;
+  heartShardCount = 0;
+  resetRewardSkillTimers();
   crew = [];
   purchasedUpgrades = [];
   sideQuestState = sideQuestConfigs.map((quest) => ({
@@ -1308,6 +1327,7 @@ function saveGame() {
       expiresAt: reward.expiresAt
     })),
     shieldCharges,
+    heartShardCount,
     ghostPirateDefeated,
     activePowerUpId: null
   };
@@ -1323,8 +1343,8 @@ function saveGame() {
 function restoreGameState(savedState) {
   currentLevelIndex = keepInside(savedState.currentLevelIndex || 0, levels.length - 1);
   finalIslandActive = Boolean(savedState.finalIslandActive);
-  maxHealth = savedState.maxHealth || baseMaxHealth;
-  health = Math.min(savedState.health || maxHealth, maxHealth);
+  maxHealth = Math.max(baseMaxHealth, Number(savedState.maxHealth) || baseMaxHealth);
+  health = Math.min(Number.isFinite(Number(savedState.health)) ? Number(savedState.health) : maxHealth, maxHealth);
   totalCoins = savedState.totalCoins || 0;
   mapFragments = savedState.mapFragments || 0;
   crew = Array.isArray(savedState.crew) ? [...savedState.crew] : [];
@@ -1336,6 +1356,8 @@ function restoreGameState(savedState) {
   activePowerUp = null;
   powerUpTimer = 0;
   shieldCharges = 0;
+  heartShardCount = Math.max(0, Number(savedState.heartShardCount) || 0) % heartShardsPerUpgrade;
+  resetRewardSkillTimers();
 
   defeatedEnemyIndexes = Array.isArray(savedState.defeatedEnemyIndexes) ? [...savedState.defeatedEnemyIndexes] : [];
 
@@ -1346,7 +1368,7 @@ function restoreGameState(savedState) {
   }
 
   score = savedState.score || 0;
-  health = Math.min(savedState.health || maxHealth, maxHealth);
+  health = Math.min(Number.isFinite(Number(savedState.health)) ? Number(savedState.health) : maxHealth, maxHealth);
   routeUnlocked = Boolean(savedState.routeUnlocked);
   routeQuestionShown = Boolean(savedState.routeQuestionShown);
   bossEventStarted = Boolean(savedState.bossEventStarted);
@@ -1366,7 +1388,7 @@ function restoreGameState(savedState) {
     });
   }
 
-  shieldCharges = Math.max(0, Number(savedState.shieldCharges) || 0);
+  shieldCharges = Math.min(maxShieldCharges, Math.max(0, Number(savedState.shieldCharges) || 0));
   restoreRewardDrops(savedState.rewardDrops);
 
   if (routeUnlocked && !finalIslandActive) {
@@ -1470,7 +1492,7 @@ function startLevel(options = {}) {
   lastDirection = "right";
   activePowerUp = null;
   powerUpTimer = 0;
-  shieldCharges = 0;
+  resetRewardSkillTimers();
 
   if (!options.fromSave) {
     defeatedEnemyIndexes = [];
@@ -1704,6 +1726,9 @@ function startFinalTreasureIsland(options = {}) {
   dashCooldown = 0;
   gunCooldown = 0;
   lastDirection = "right";
+  activePowerUp = null;
+  powerUpTimer = 0;
+  resetRewardSkillTimers();
   playerElement.classList.remove("damaged", "dashing");
   routePanel.classList.add("hidden");
   worldMap.classList.add("hidden");
@@ -1785,6 +1810,7 @@ function updateHud(message) {
   updateControlGuide();
   updateHpLabels();
   updateHeartHealth();
+  updateActiveSkillBar();
   updateQuestPanel();
   updateBattlePanel();
   updateMusicForGameState();
@@ -1792,8 +1818,28 @@ function updateHud(message) {
 
 function updateHeartHealth() {
   const currentHearts = Math.max(0, health);
-  heartHealthElement.textContent = currentHearts > 0 ? "\u2764\uFE0F".repeat(currentHearts) : "No hearts";
+  const emptyHearts = Math.max(0, maxHealth - currentHearts);
+  heartHealthElement.textContent = `${"\u2764\uFE0F".repeat(currentHearts)}${"\u2661".repeat(emptyHearts)}` || "No hearts";
   heartHealthElement.title = `${health}/${maxHealth} HP`;
+}
+
+function updateActiveSkillBar() {
+  const activeSkills = [
+    [skillShield, shieldCharges > 0, `\uD83D\uDEE1\uFE0F Shield x${shieldCharges}`],
+    [skillShards, heartShardCount > 0, `\uD83D\uDC97 Shards ${heartShardCount}/${heartShardsPerUpgrade}`],
+    [skillWind, rewardSkillTimers.wind > 0 || (activePowerUp && activePowerUp.id === "wind"), `\uD83C\uDF43 Wind ${Math.ceil(Math.max(rewardSkillTimers.wind, activePowerUp && activePowerUp.id === "wind" ? powerUpTimer : 0))}s`],
+    [skillSword, rewardSkillTimers.sword > 0, `\uD83D\uDD25 Sword ${Math.ceil(rewardSkillTimers.sword)}s`],
+    [skillFocus, rewardSkillTimers.focus > 0, `\u2B50 Focus ${Math.ceil(rewardSkillTimers.focus)}s`]
+  ];
+  let visibleSkillCount = 0;
+
+  activeSkills.forEach(([element, isVisible, label]) => {
+    element.textContent = label;
+    element.classList.toggle("hidden", !isVisible);
+    visibleSkillCount += isVisible ? 1 : 0;
+  });
+
+  activeSkillBar.classList.toggle("hidden", visibleSkillCount === 0);
 }
 
 function syncGameAreaCursor() {
@@ -3256,7 +3302,7 @@ function attackBoss() {
 
   const meleeRange = purchasedUpgrades.includes("sharpSword") ? bossAttackRange + 22 : bossAttackRange;
   const meleeThickness = purchasedUpgrades.includes("sharpSword") ? bossAttackThickness + 16 : bossAttackThickness;
-  const meleeDamage = purchasedUpgrades.includes("sharpSword") ? 2 : 1;
+  const meleeDamage = getMeleeDamage();
   const attackArea = GameLogic.getAttackArea(player, attackDirection, {
     spriteSize,
     range: meleeRange,
@@ -3414,7 +3460,7 @@ function attackRegularEnemy() {
   const attackDirection = lastDirection;
   const meleeRange = purchasedUpgrades.includes("sharpSword") ? bossAttackRange + 22 : bossAttackRange;
   const meleeThickness = purchasedUpgrades.includes("sharpSword") ? bossAttackThickness + 16 : bossAttackThickness;
-  const meleeDamage = purchasedUpgrades.includes("sharpSword") ? 2 : 1;
+  const meleeDamage = getMeleeDamage();
   const attackArea = GameLogic.getAttackArea(player, attackDirection, {
     spriteSize,
     range: meleeRange,
@@ -3595,21 +3641,54 @@ function collectRewardDrop(reward) {
   reward.collected = true;
   const config = rewardTypes[reward.type];
 
+  let floatingText = config.floatingText;
+  let toastMessage = config.toast;
+
   if (reward.type === "coin") {
     totalCoins += 1;
   } else if (reward.type === "heart") {
-    health = Math.min(maxHealth, health + 1);
+    const result = GameLogic.applyHeartReward(health, maxHealth);
+    health = result.health;
+    floatingText = result.healed ? "+1 HP" : "HP Full";
+    toastMessage = result.healed ? "Heart restored 1 HP!" : "HP is already full.";
+    playPlayerPickupEffect("heart");
   } else if (reward.type === "shieldOrb") {
-    shieldCharges += 1;
+    const previousCharges = shieldCharges;
+    shieldCharges = GameLogic.addShieldCharge(shieldCharges, maxShieldCharges);
+    floatingText = shieldCharges > previousCharges ? "Shield +1" : "Shield Full";
+    toastMessage = shieldCharges > previousCharges ? "Shield charge +1!" : "Shield charges are full.";
+    playPlayerPickupEffect("shield");
+  } else if (reward.type === "heartShard") {
+    const result = GameLogic.collectHeartShard(heartShardCount, health, maxHealth, heartShardsPerUpgrade);
+    heartShardCount = result.shardCount;
+    health = result.health;
+    maxHealth = result.maxHealth;
+    floatingText = result.upgraded ? "Max HP +1" : `Shard ${heartShardCount}/${heartShardsPerUpgrade}`;
+    toastMessage = result.upgraded ? "Three shards formed a new heart!" : "Heart Shard collected!";
+    playPlayerPickupEffect("shard");
+  } else if (reward.type === "windLeaf") {
+    rewardSkillTimers.wind = rewardSkillDuration;
+    toastMessage = `Wind boost active for ${rewardSkillDuration}s!`;
+  } else if (reward.type === "swordFlame") {
+    rewardSkillTimers.sword = rewardSkillDuration;
+    toastMessage = `Sword Flame active for ${rewardSkillDuration}s!`;
   }
 
   reward.element.remove();
   rewardDrops = rewardDrops.filter((item) => item !== reward);
-  showFloatingText(config.floatingText, player.x + 2, player.y - 10, "reward");
-  showToast(config.toast);
+  showFloatingText(floatingText, player.x + 2, player.y - 10, "reward");
+  showToast(toastMessage);
   AudioManager.playSound("coin");
-  updateHud(config.toast);
+  updateHud(toastMessage);
   saveGame();
+}
+
+function playPlayerPickupEffect(effectName) {
+  const className = `pickup-${effectName}`;
+  playerElement.classList.remove(className);
+  void playerElement.offsetWidth;
+  playerElement.classList.add(className);
+  setTimeout(() => playerElement.classList.remove(className), 650);
 }
 
 function updateRewardDrops(deltaTime) {
@@ -3802,11 +3881,16 @@ function showFloatingText(text, x, y, type) {
 }
 
 function getPlayerSpeed() {
+  const speedPowerUp = rewardSkillTimers.wind > 0 ? "wind" : (activePowerUp ? activePowerUp.id : null);
   return GameLogic.getPlayerSpeed(
     basePlayerSpeed,
     purchasedUpgrades.includes("strongSail"),
-    activePowerUp ? activePowerUp.id : null
+    speedPowerUp
   );
+}
+
+function getMeleeDamage() {
+  return (purchasedUpgrades.includes("sharpSword") ? 2 : 1) + (rewardSkillTimers.sword > 0 ? 1 : 0);
 }
 
 function activateMysteryFruit(fruit) {
@@ -3814,7 +3898,7 @@ function activateMysteryFruit(fruit) {
   activePowerUp = fruit;
 
   if (fruit.id === "shield") {
-    shieldCharges = 1;
+    shieldCharges = GameLogic.addShieldCharge(shieldCharges, maxShieldCharges);
     powerUpTimer = 0;
     showToast("Shield Fruit active!");
     updateHud("Shield Fruit activated! It will block one hit.");
@@ -3872,11 +3956,18 @@ function expirePowerUp() {
   updateHud("Mystery Fruit effect faded.");
 }
 
-function getActiveFruitText() {
-  if (shieldCharges > 0 && (!activePowerUp || activePowerUp.id !== "shield")) {
-    return `Shield x${shieldCharges}`;
-  }
+function resetRewardSkillTimers() {
+  rewardSkillTimers = { wind: 0, sword: 0, focus: 0 };
+}
 
+function updateRewardSkills(deltaTime) {
+  Object.keys(rewardSkillTimers).forEach((skill) => {
+    rewardSkillTimers[skill] = Math.max(0, rewardSkillTimers[skill] - deltaTime);
+  });
+  updateActiveSkillBar();
+}
+
+function getActiveFruitText() {
   if (!activePowerUp) {
     return "None";
   }
@@ -3965,7 +4056,11 @@ function takeDamage(statusMessage, gameOverMessage, options = {}) {
   updateHpLabels();
 
   if (result.blocked) {
-    activePowerUp = null;
+    if (activePowerUp && activePowerUp.id === "shield") {
+      activePowerUp = null;
+    }
+    showFloatingText("Blocked!", player.x - 2, player.y - 10, "blocked");
+    playPlayerPickupEffect("shield-block");
     showToast("Shield blocked damage!");
     updateHud("Your shield blocked the hit!");
     saveGame();
@@ -4438,6 +4533,7 @@ function gameLoop(currentTime) {
     movePlayer(safeDeltaTime);
     moveEnemies(safeDeltaTime);
     updatePowerUp(safeDeltaTime);
+    updateRewardSkills(safeDeltaTime);
     updateBullets(safeDeltaTime);
     updateEnemyProjectiles(safeDeltaTime);
     updateRewardDrops(safeDeltaTime);

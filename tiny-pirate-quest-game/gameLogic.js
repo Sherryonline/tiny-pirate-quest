@@ -37,7 +37,7 @@
       return {
         health: state.health,
         shieldCharges: state.shieldCharges - 1,
-        cooldown: state.cooldown,
+        cooldown: state.damageCooldown,
         blocked: true,
         gameOver: false
       };
@@ -51,6 +51,42 @@
       cooldown: state.damageCooldown,
       blocked: false,
       gameOver: nextHealth <= 0
+    };
+  }
+
+  function applyHeartReward(health, maxHealth) {
+    const healedHealth = Math.min(maxHealth, health + 1);
+
+    return {
+      health: healedHealth,
+      healed: healedHealth > health
+    };
+  }
+
+  function addShieldCharge(shieldCharges, maximum) {
+    const limit = Number.isFinite(maximum) ? maximum : 3;
+    return Math.min(limit, Math.max(0, shieldCharges) + 1);
+  }
+
+  function collectHeartShard(shardCount, health, maxHealth, requiredShards) {
+    const target = Number.isFinite(requiredShards) ? requiredShards : 3;
+    const nextShardCount = shardCount + 1;
+
+    if (nextShardCount < target) {
+      return {
+        shardCount: nextShardCount,
+        health,
+        maxHealth,
+        upgraded: false
+      };
+    }
+
+    const nextMaxHealth = maxHealth + 1;
+    return {
+      shardCount: 0,
+      health: Math.min(nextMaxHealth, health + 1),
+      maxHealth: nextMaxHealth,
+      upgraded: true
     };
   }
 
@@ -246,6 +282,9 @@
     keepInside,
     answerRouteQuestion,
     applyDamage,
+    applyHeartReward,
+    addShieldCharge,
+    collectHeartShard,
     getPlayerSpeed,
     buyUpgrade,
     canSelectIsland,

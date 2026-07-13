@@ -40,7 +40,7 @@ test("damage uses shield before reducing health", () => {
   assert.deepEqual(GameLogic.applyDamage({ health: 2, shieldCharges: 1, cooldown: 0, damageCooldown: 1 }), {
     health: 2,
     shieldCharges: 0,
-    cooldown: 0,
+    cooldown: 1,
     blocked: true,
     gameOver: false
   });
@@ -51,6 +51,31 @@ test("damage uses shield before reducing health", () => {
     cooldown: 1,
     blocked: false,
     gameOver: true
+  });
+});
+
+test("heart rewards heal without exceeding max health", () => {
+  assert.deepEqual(GameLogic.applyHeartReward(2, 3), { health: 3, healed: true });
+  assert.deepEqual(GameLogic.applyHeartReward(3, 3), { health: 3, healed: false });
+});
+
+test("shield rewards cap at three charges", () => {
+  assert.equal(GameLogic.addShieldCharge(1, 3), 2);
+  assert.equal(GameLogic.addShieldCharge(3, 3), 3);
+});
+
+test("three heart shards increase max health and heal one", () => {
+  assert.deepEqual(GameLogic.collectHeartShard(1, 2, 3, 3), {
+    shardCount: 2,
+    health: 2,
+    maxHealth: 3,
+    upgraded: false
+  });
+  assert.deepEqual(GameLogic.collectHeartShard(2, 2, 3, 3), {
+    shardCount: 0,
+    health: 3,
+    maxHealth: 4,
+    upgraded: true
   });
 });
 
