@@ -58,6 +58,7 @@ const overlayRestartButton = document.getElementById("overlayRestartButton");
 const routePanel = document.getElementById("routePanel");
 const routeClue = document.getElementById("routeClue");
 const routeChoices = document.getElementById("routeChoices");
+const routeHint = document.getElementById("routeHint");
 const worldMap = document.getElementById("worldMap");
 const worldMapMessage = document.getElementById("worldMapMessage");
 const worldMapIslands = document.getElementById("worldMapIslands");
@@ -167,6 +168,7 @@ let lastFrameTime = 0;
 let overlayAction = "restart";
 let routeQuestionShown = false;
 let routeUnlocked = false;
+let routeWrongAttempts = 0;
 let bossActive = false;
 let bossEventStarted = false;
 let attackCooldown = 0;
@@ -238,44 +240,40 @@ function saveAudioVolumePreference() {
   }
 }
 
-function initAudioContext() {
-  if (audioContext) {
-    return audioContext;
-  }
-
-  const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-
-  if (!AudioContextClass) {
-    console.warn("Tiny Pirate Quest audio is not supported in this browser.");
-    return null;
-  }
-
-  try {
-    console.log("Creating AudioContext after user gesture");
-    audioContext = new AudioContextClass();
-    masterGain = audioContext.createGain();
-    sfxGain = audioContext.createGain();
-    musicGain = audioContext.createGain();
-    masterGain.gain.value = audioMuted ? 0 : audioVolume;
-    sfxGain.gain.value = 0.75;
-    musicGain.gain.value = 0.16;
-    sfxGain.connect(masterGain);
-    musicGain.connect(masterGain);
-    masterGain.connect(audioContext.destination);
-    return audioContext;
-  } catch (error) {
-    console.warn("Tiny Pirate Quest audio could not start.", error);
-    return null;
-  }
-}
-
 function initAudio() {
-  return initAudioContext();
+  return unlockAudio();
 }
 
 async function unlockAudio() {
   console.log("Audio unlock requested");
-  const context = initAudioContext();
+
+  if (!audioContext) {
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+
+    if (!AudioContextClass) {
+      console.warn("Tiny Pirate Quest audio is not supported in this browser.");
+      return false;
+    }
+
+    try {
+      console.log("Creating AudioContext after user gesture");
+      audioContext = new AudioContextClass();
+      masterGain = audioContext.createGain();
+      sfxGain = audioContext.createGain();
+      musicGain = audioContext.createGain();
+      masterGain.gain.value = audioMuted ? 0 : audioVolume;
+      sfxGain.gain.value = 0.75;
+      musicGain.gain.value = 0.16;
+      sfxGain.connect(masterGain);
+      musicGain.connect(masterGain);
+      masterGain.connect(audioContext.destination);
+    } catch (error) {
+      console.warn("Tiny Pirate Quest audio could not start.", error);
+      return false;
+    }
+  }
+
+  const context = audioContext;
 
   if (!context) {
     return false;
@@ -360,7 +358,12 @@ function syncMuteButton() {
 }
 
 function playTone(frequency, duration, type = "sine", volume = 0.18, toFrequency = null) {
-  if (audioMuted || !audioUnlocked) {
+  if (!GameLogic.isAudioPlaybackReady({
+    muted: audioMuted,
+    unlocked: audioUnlocked,
+    context: audioContext,
+    gain: sfxGain
+  })) {
     return false;
   }
 
@@ -404,8 +407,13 @@ function playTone(frequency, duration, type = "sine", volume = 0.18, toFrequency
 }
 
 function playNoise(duration, options = {}) {
-  if (audioMuted || !audioUnlocked) {
-    return;
+  if (!GameLogic.isAudioPlaybackReady({
+    muted: audioMuted,
+    unlocked: audioUnlocked,
+    context: audioContext,
+    gain: sfxGain
+  })) {
+    return false;
   }
 
   const context = audioContext;
@@ -435,7 +443,10 @@ function playNoise(duration, options = {}) {
     noise.start(now);
   } catch (error) {
     console.warn(`Audio play failed: ${error}`);
+    return false;
   }
+
+  return true;
 }
 
 function playSound(name) {
@@ -462,6 +473,13 @@ function playSound(name) {
   if (name === "coin") {
     playTone(880, 0.08, "sine", 0.14, 1320);
     playTone(1320, 0.09, "sine", 0.1);
+  } else if (name === "heart") {
+    playTone(440, 0.14, "sine", 0.08, 660);
+  } else if (name === "shield") {
+    playTone(880, 0.08, "triangle", 0.1);
+    setTimeout(() => playTone(1174, 0.12, "triangle", 0.09), 75);
+  } else if (name === "enemyHit") {
+    playTone(190, 0.1, "square", 0.09, 130);
   } else if (name === "hurt") {
     playTone(220, 0.22, "sawtooth", 0.12, 110);
   } else if (name === "dash" || name === "sword") {
@@ -486,6 +504,10 @@ function playSound(name) {
     [784, 1046, 1318].forEach((frequency, index) => {
       setTimeout(() => playTone(frequency, 0.13, "sine", 0.09), index * 70);
     });
+  } else if (name === "victory") {
+    [523, 659, 784].forEach((frequency, index) => {
+      setTimeout(() => playTone(frequency, 0.18, "sine", 0.11), index * 110);
+    });
   } else if (name === "bossWarning") {
     playTone(170, 0.12, "triangle", 0.1);
     setTimeout(() => playTone(130, 0.14, "triangle", 0.1), 130);
@@ -503,24 +525,52 @@ function playSound(name) {
   } else if (name === "routeCorrect") {
     playTone(740, 0.09, "sine", 0.1);
     setTimeout(() => playTone(1046, 0.13, "sine", 0.1), 90);
-  } else if (name === "routeWrong") {
+  } else if (name === "wrongAnswer" || name === "routeWrong") {
     playTone(260, 0.12, "sawtooth", 0.1, 160);
   }
 
   return true;
 }
 
-async function testSound() {
-  if (audioMuted) {
-    console.log("Audio muted");
-    showToast("Sound is muted.");
-    return false;
-  }
+function playPickupSound(pickupType = "coin") {
+  return playSound(pickupType === "heart" ? "heart" : "coin");
+}
 
+function playHitSound() {
+  return playSound("enemyHit");
+}
+
+function playShieldSound() {
+  return playSound("shield");
+}
+
+function playDashSound() {
+  return playSound("dash");
+}
+
+function playVictorySound() {
+  return playSound("victory");
+}
+
+function playRareDropSound() {
+  return playSound("rareTreasure");
+}
+
+function playErrorSound() {
+  return playSound("wrongAnswer");
+}
+
+async function testSound() {
   const unlocked = await unlockAudio();
 
   if (!unlocked) {
-    showToast("Audio blocked by browser. Click Test Sound or Start Adventure.");
+    showToast("Audio blocked. Click Test Sound again.");
+    return false;
+  }
+
+  if (audioMuted) {
+    console.log("Audio muted");
+    showToast("Sound is muted.");
     return false;
   }
 
@@ -535,7 +585,7 @@ async function testSound() {
   setTimeout(() => playTone(1100, 0.2, "sine", 0.28), 240);
 
   if (didPlay) {
-    showToast("Sound works!");
+    showToast("Sound test triggered");
     return true;
   }
 
@@ -662,6 +712,13 @@ const AudioManager = {
   unlockAudio,
   playTone,
   playSound,
+  playPickupSound,
+  playHitSound,
+  playShieldSound,
+  playDashSound,
+  playVictorySound,
+  playRareDropSound,
+  playErrorSound,
   playMusic,
   stopMusic,
   toggleMute,
@@ -1286,66 +1343,73 @@ function normalizeLeaderboardRecord(record) {
     return null;
   }
 
-  const completedAtDate = new Date(record.completedAt || record.completedDate);
-  const completedAt = Number.isNaN(completedAtDate.getTime())
+  const completedDateValue = new Date(record.completedAt || record.completedDate);
+  const completedDate = Number.isNaN(completedDateValue.getTime())
     ? new Date(0).toISOString()
-    : completedAtDate.toISOString();
+    : completedDateValue.toISOString();
   const coins = Number(record.coins);
-  const fragments = Number(record.mapFragments);
 
   return {
     playerName: sanitizePirateName(record.playerName),
-    completedDate: typeof record.completedDate === "string" && record.completedDate.trim()
-      ? record.completedDate.trim()
-      : formatLeaderboardDate(new Date(completedAt)),
-    completedAt,
+    completedDate,
     coins: Number.isFinite(coins) ? Math.max(0, Math.floor(coins)) : 0,
-    mapFragments: Number.isFinite(fragments) ? Math.max(0, Math.floor(fragments)) : 0,
-    title: record.title === "Pirate Legend" ? "Pirate Legend" : ""
+    title: typeof record.title === "string" ? record.title.trim().slice(0, 30) : ""
   };
 }
 
-function loadLeaderboard() {
+function getLeaderboard() {
   try {
     const rawLeaderboard = localStorage.getItem(leaderboardKey);
     const parsedLeaderboard = rawLeaderboard ? JSON.parse(rawLeaderboard) : [];
 
     if (!Array.isArray(parsedLeaderboard)) {
+      console.log("Leaderboard loaded", []);
       return [];
     }
 
-    return GameLogic.getTopLeaderboard(
+    const records = GameLogic.getTopLeaderboard(
       parsedLeaderboard.map(normalizeLeaderboardRecord).filter(Boolean),
       5
     );
+    console.log("Leaderboard loaded", records);
+    return records;
   } catch (error) {
+    console.log("Leaderboard loaded", []);
     return [];
   }
 }
 
-function saveLeaderboardRecord(record) {
-  const records = GameLogic.getTopLeaderboard([
-    ...loadLeaderboard(),
-    normalizeLeaderboardRecord(record)
-  ].filter(Boolean), 5);
+function saveLeaderboard(records) {
+  const normalizedRecords = GameLogic.getTopLeaderboard(
+    (Array.isArray(records) ? records : []).map(normalizeLeaderboardRecord).filter(Boolean),
+    5
+  );
 
   try {
-    localStorage.setItem(leaderboardKey, JSON.stringify(records));
-    return { records, saved: true };
+    localStorage.setItem(leaderboardKey, JSON.stringify(normalizedRecords));
+    console.log("Leaderboard saved", normalizedRecords);
+    return true;
   } catch (error) {
-    return { records, saved: false };
+    return false;
   }
 }
 
-function createLeaderboardRecord(playerName) {
-  const completedAt = new Date();
+function addLeaderboardRecord(record) {
+  const normalizedRecord = normalizeLeaderboardRecord(record);
+  const records = GameLogic.addLeaderboardRecord(
+    getLeaderboard(),
+    normalizedRecord,
+    5
+  );
 
+  return { records, saved: saveLeaderboard(records) };
+}
+
+function createLeaderboardRecord(playerName) {
   return {
     playerName: sanitizePirateName(playerName),
-    completedDate: formatLeaderboardDate(completedAt),
-    completedAt: completedAt.toISOString(),
+    completedDate: new Date().toISOString(),
     coins: totalCoins,
-    mapFragments,
     title: rareCollection.pirateBadge ? "Pirate Legend" : ""
   };
 }
@@ -1355,7 +1419,7 @@ function getLeaderboardRank(index) {
   return rankBadges[index] || String(index + 1);
 }
 
-function renderLeaderboard(records = loadLeaderboard()) {
+function renderLeaderboard(records = getLeaderboard()) {
   hallLeaderboardRows.replaceChildren();
   hallEmptyMessage.classList.toggle("hidden", records.length > 0);
   hallLeaderboardTable.classList.toggle("hidden", records.length === 0);
@@ -1378,7 +1442,7 @@ function renderLeaderboard(records = loadLeaderboard()) {
     rank.textContent = getLeaderboardRank(index);
     playerName.textContent = record.playerName;
     title.textContent = record.title || "-";
-    completedDate.textContent = record.completedDate;
+    completedDate.textContent = formatLeaderboardDate(new Date(record.completedDate));
     coins.textContent = `${record.coins} coins`;
 
     row.append(rank, playerName, title, completedDate, coins);
@@ -1406,9 +1470,9 @@ function showHallOfFame(options = {}) {
   renderLeaderboard();
 }
 
-function saveHallOfFameAchievement() {
+function submitPirateName() {
   const record = createLeaderboardRecord(pirateNameInput.value);
-  const result = saveLeaderboardRecord(record);
+  const result = addLeaderboardRecord(record);
 
   if (!result.saved) {
     showToast("Leaderboard could not be saved in this browser.");
@@ -1659,6 +1723,7 @@ function startLevel(options = {}) {
   overlayAction = "restart";
   routeQuestionShown = false;
   routeUnlocked = false;
+  routeWrongAttempts = 0;
   bossActive = false;
   bossEventStarted = false;
   bossDefeatToken += 1;
@@ -2677,7 +2742,7 @@ function dashPlayer() {
   player.x = playerX;
   player.y = playerY;
   dashCooldown = dashCooldownDuration;
-  AudioManager.playSound("dash");
+  AudioManager.playDashSound();
   playDashEffect();
   drawSprites();
   updateHud("Dash!");
@@ -2859,7 +2924,7 @@ function collectCoin(coin, collector = "player") {
   coin.collected = true;
   score += 1;
   timeSinceCoinCollected = 0;
-  AudioManager.playSound("coin");
+  AudioManager.playPickupSound();
   showToast(collector === "parrot" ? "Polly found a coin!" : "Coin collected!");
   saveGame();
 
@@ -3915,6 +3980,7 @@ function attackRegularEnemy() {
     showEnemyWeaknessHit(target);
   }
   showToast("Enemy hit!");
+  AudioManager.playHitSound();
 
   setTimeout(() => {
     if (target.element) {
@@ -4159,7 +4225,15 @@ function collectRewardDrop(reward) {
   syncActiveSkillEffects();
   showFloatingText(floatingText, player.x + 2, player.y - 10, "reward");
   showToast(toastMessage);
-  AudioManager.playSound(config.rare ? "rareTreasure" : "coin");
+  if (config.rare) {
+    AudioManager.playRareDropSound();
+  } else if (reward.type === "heart") {
+    AudioManager.playPickupSound("heart");
+  } else if (reward.type === "shieldOrb") {
+    AudioManager.playShieldSound();
+  } else {
+    AudioManager.playPickupSound();
+  }
   updateHud(toastMessage);
   saveGame();
 }
@@ -4582,8 +4656,10 @@ function showRouteQuestion(level) {
   }
 
   routeQuestionShown = true;
+  routeWrongAttempts = 0;
   routeClue.textContent = `${level.clue} ${level.question}`;
   routeChoices.innerHTML = "";
+  routeHint.textContent = "";
 
   level.choices.forEach((choice, index) => {
     const button = document.createElement("button");
@@ -4605,6 +4681,8 @@ function answerRouteQuestion(choiceIndex) {
   const result = GameLogic.answerRouteQuestion(choiceIndex, level.correctChoice, health);
 
   if (result.isCorrect) {
+    routeWrongAttempts = 0;
+    routeHint.textContent = "";
     routeUnlocked = true;
     routePanel.classList.add("hidden");
     chestElement.classList.remove("hidden");
@@ -4618,18 +4696,21 @@ function answerRouteQuestion(choiceIndex) {
     return;
   }
 
-  health = result.health;
-  resetCombo();
-  showToast("Wrong answer! HP -1");
-  AudioManager.playSound("routeWrong");
-  updateHud(result.message);
-  saveGame();
+  routeWrongAttempts += 1;
+  const hintMessage = routeWrongAttempts === 1
+    ? "Not quite, pirate! Read the clue again."
+    : "Look carefully at the island clue.";
+  const selectedButton = routeChoices.children[choiceIndex];
 
-  if (health <= 0) {
-    routePanel.classList.add("hidden");
-    endGame("Game Over", "Wrong answer! The sea path is still hidden.");
-  } else {
-    focusGame();
+  routeHint.textContent = hintMessage;
+  showToast(hintMessage);
+  AudioManager.playErrorSound();
+  updateHud(`${hintMessage} Try another answer.`);
+
+  if (selectedButton) {
+    selectedButton.classList.remove("wrong-answer");
+    void selectedButton.offsetWidth;
+    selectedButton.classList.add("wrong-answer");
   }
 }
 
@@ -5047,6 +5128,7 @@ function completeFinalAdventure() {
   updateHud(victoryMessages.join(" "));
   showToast("Grand Treasure found!");
   showHallOfFame({ completion: true });
+  AudioManager.playVictorySound();
   setMusicMode("victory");
 }
 
@@ -5168,7 +5250,7 @@ document.addEventListener("keydown", (event) => {
   if (event.target === pirateNameInput) {
     if (event.key === "Enter") {
       event.preventDefault();
-      saveHallOfFameAchievement();
+      submitPirateName();
     }
     return;
   }
@@ -5274,7 +5356,7 @@ overlayRestartButton.addEventListener("click", handleOverlayButton);
 continueMapButton.addEventListener("click", continueToWorldMap);
 startAdventureButton.addEventListener("click", handleStartAdventureClick);
 continueAdventureButton.addEventListener("click", handleContinueAdventureClick);
-saveAchievementButton.addEventListener("click", saveHallOfFameAchievement);
+saveAchievementButton.addEventListener("click", submitPirateName);
 hallOfFameCloseButton.addEventListener("click", closeHallOfFame);
 hallPlayAgainButton.addEventListener("click", playAgainFromHallOfFame);
 hallViewButton.addEventListener("click", refreshHallOfFame);

@@ -326,7 +326,7 @@ The World Map shows a ship route. Selecting the current unlocked island displays
 | Player defeats Ghost Pirate | Grand Treasure unlocks |
 | Player opens the unlocked Grand Treasure | Adventure completed |
 | Player health reaches 0 | Game Over |
-| Player chooses a wrong route answer | Health decreases by 1 |
+| Player chooses a wrong route answer | Friendly hint appears and the player can retry without losing health |
 
 ## Project Structure
 
@@ -449,7 +449,7 @@ npm run check
 | Enemy damage | Collision and projectile hits decrease hearts with damage cooldown |
 | Lava damage | Health decreases and screen shakes |
 | Route question | Correct answer unlocks island completion |
-| Wrong route answer | Health decreases by 1 |
+| Wrong route answer | Route panel stays open with a friendly retry hint; health is unchanged |
 | World Map | Next island unlocks after island completion |
 | Quest Panel | Objective and hint update across coins, boss, and final island |
 | Quest Panel overlays | Quest Panel hides during intro, shop, route clue, world map, and game over overlays |

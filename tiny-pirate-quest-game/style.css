@@ -1561,6 +1561,23 @@ h1 {
   width: 100%;
 }
 
+.route-choices button.wrong-answer {
+  animation: route-answer-shake 220ms ease-in-out;
+}
+
+.route-hint {
+  min-height: 1.4em;
+  margin: 12px 0 0 !important;
+  color: #8b2f23;
+  font-weight: 700;
+}
+
+@keyframes route-answer-shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-6px); }
+  75% { transform: translateX(6px); }
+}
+
 .world-map {
   position: absolute;
   inset: 24px;

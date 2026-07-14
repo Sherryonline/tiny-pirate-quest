@@ -25,15 +25,27 @@ test("boundary clamps values inside the game area", () => {
 test("route answers unlock only when correct", () => {
   assert.deepEqual(GameLogic.answerRouteQuestion(1, 1, 3), {
     isCorrect: true,
+    state: "success",
     health: 3,
+    gameOver: false,
     message: "Correct! The sea route is revealed."
   });
 
   assert.deepEqual(GameLogic.answerRouteQuestion(0, 1, 3), {
     isCorrect: false,
-    health: 2,
-    message: "Wrong answer! The sea path is still hidden."
+    state: "retry",
+    health: 3,
+    gameOver: false,
+    message: "Not quite, pirate! Read the clue again."
   });
+});
+
+test("wrong route answers retry without forcing game over", () => {
+  const result = GameLogic.answerRouteQuestion(0, 2, 1);
+
+  assert.equal(result.state, "retry");
+  assert.equal(result.health, 1);
+  assert.equal(result.gameOver, false);
 });
 
 test("damage uses shield before reducing health", () => {
@@ -332,9 +344,9 @@ test("pirate names are trimmed, limited, and defaulted", () => {
 
 test("leaderboard ranks coins first and latest completion second", () => {
   const records = [
-    { playerName: "Older", coins: 20, completedAt: "2026-07-09T10:00:00.000Z" },
-    { playerName: "Most Coins", coins: 30, completedAt: "2026-07-08T10:00:00.000Z" },
-    { playerName: "Newer", coins: 20, completedAt: "2026-07-10T10:00:00.000Z" }
+    { playerName: "Older", coins: 20, completedDate: "2026-07-09T10:00:00.000Z" },
+    { playerName: "Most Coins", coins: 30, completedDate: "2026-07-08T10:00:00.000Z" },
+    { playerName: "Newer", coins: 20, completedDate: "2026-07-10T10:00:00.000Z" }
   ];
 
   assert.deepEqual(
@@ -353,6 +365,44 @@ test("leaderboard stores only the top five records", () => {
 
   assert.equal(topFive.length, 5);
   assert.deepEqual(topFive.map((record) => record.coins), [7, 6, 5, 4, 3]);
+});
+
+test("adding a leaderboard record trims its name and keeps coin order", () => {
+  const records = GameLogic.addLeaderboardRecord(
+    [{ playerName: "Old Salt", coins: 4, completedDate: "2026-07-10T10:00:00.000Z" }],
+    { playerName: "  New Legend  ", coins: 12, completedDate: "2026-07-11T10:00:00.000Z" },
+    5
+  );
+
+  assert.equal(records[0].playerName, "New Legend");
+  assert.deepEqual(records.map((record) => record.coins), [12, 4]);
+});
+
+test("adding an empty leaderboard name uses Tiny Pirate", () => {
+  const records = GameLogic.addLeaderboardRecord([], {
+    playerName: "   ",
+    coins: 1,
+    completedDate: "2026-07-11T10:00:00.000Z"
+  }, 5);
+
+  assert.equal(records[0].playerName, "Tiny Pirate");
+});
+
+test("audio playback stays disabled safely when muted or unavailable", () => {
+  assert.equal(GameLogic.isAudioPlaybackReady(), false);
+  assert.equal(GameLogic.isAudioPlaybackReady({ muted: false, unlocked: true }), false);
+  assert.equal(GameLogic.isAudioPlaybackReady({
+    muted: true,
+    unlocked: true,
+    context: {},
+    gain: {}
+  }), false);
+  assert.equal(GameLogic.isAudioPlaybackReady({
+    muted: false,
+    unlocked: true,
+    context: {},
+    gain: {}
+  }), true);
 });
 
 test("enemy rewards follow weighted drop table boundaries", () => {

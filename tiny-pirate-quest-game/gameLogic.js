@@ -25,10 +25,12 @@
 
     return {
       isCorrect,
-      health: isCorrect ? health : health - 1,
+      state: isCorrect ? "success" : "retry",
+      health,
+      gameOver: false,
       message: isCorrect
         ? "Correct! The sea route is revealed."
-        : "Wrong answer! The sea path is still hidden."
+        : "Not quite, pirate! Read the clue again."
     };
   }
 
@@ -382,13 +384,27 @@
         return secondCoins - firstCoins;
       }
 
-      return new Date(second.completedAt).getTime() - new Date(first.completedAt).getTime();
+      const firstTime = new Date(first.completedAt || first.completedDate || 0).getTime() || 0;
+      const secondTime = new Date(second.completedAt || second.completedDate || 0).getTime() || 0;
+      return secondTime - firstTime;
     });
   }
 
   function getTopLeaderboard(records, limit) {
     const recordLimit = Number.isFinite(limit) ? limit : 5;
     return sortLeaderboardRecords(records).slice(0, recordLimit);
+  }
+
+  function addLeaderboardRecord(records, record, limit) {
+    const normalizedRecord = {
+      ...record,
+      playerName: sanitizePirateName(record && record.playerName, 20)
+    };
+    return getTopLeaderboard([...(Array.isArray(records) ? records : []), normalizedRecord], limit);
+  }
+
+  function isAudioPlaybackReady(state) {
+    return Boolean(state && !state.muted && state.unlocked && state.context && state.gain);
   }
 
   function pickWeightedReward(dropTable, roll) {
@@ -489,6 +505,8 @@
     sanitizePirateName,
     sortLeaderboardRecords,
     getTopLeaderboard,
+    addLeaderboardRecord,
+    isAudioPlaybackReady,
     pickWeightedReward,
     normalizeRareCollection,
     collectRareTreasure,
