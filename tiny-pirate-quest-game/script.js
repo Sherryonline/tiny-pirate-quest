@@ -203,32 +203,16 @@ let musicInterval = null;
 let currentMusicMode = "off";
 let musicStep = 0;
 let audioUnlocked = false;
-let audioMuted = loadAudioMutedPreference();
-let audioVolume = loadAudioVolumePreference();
+let audioMuted = false;
+let audioVolume = 0.5;
+let lastSoundPlayed = "none";
 const lastSoundTimes = {};
-
-function loadAudioMutedPreference() {
-  try {
-    return localStorage.getItem(audioPreferenceKey) === "true";
-  } catch (error) {
-    return false;
-  }
-}
 
 function saveAudioMutedPreference() {
   try {
     localStorage.setItem(audioPreferenceKey, String(audioMuted));
   } catch (error) {
     // Audio preference is best-effort.
-  }
-}
-
-function loadAudioVolumePreference() {
-  try {
-    const savedVolume = Number(localStorage.getItem(audioVolumePreferenceKey));
-    return Number.isFinite(savedVolume) ? keepInside(savedVolume, 1) : 0.45;
-  } catch (error) {
-    return 0.45;
   }
 }
 
@@ -252,6 +236,8 @@ async function unlockAudio() {
 
     if (!AudioContextClass) {
       console.warn("Tiny Pirate Quest audio is not supported in this browser.");
+      console.log("Audio unlocked:", false);
+      logAudioDebug("unsupported");
       return false;
     }
 
@@ -262,13 +248,19 @@ async function unlockAudio() {
       sfxGain = audioContext.createGain();
       musicGain = audioContext.createGain();
       masterGain.gain.value = audioMuted ? 0 : audioVolume;
-      sfxGain.gain.value = 0.75;
+      sfxGain.gain.value = 1;
       musicGain.gain.value = 0.16;
       sfxGain.connect(masterGain);
       musicGain.connect(masterGain);
       masterGain.connect(audioContext.destination);
     } catch (error) {
       console.warn("Tiny Pirate Quest audio could not start.", error);
+      audioContext = null;
+      masterGain = null;
+      sfxGain = null;
+      musicGain = null;
+      console.log("Audio unlocked:", false);
+      logAudioDebug("creation-failed");
       return false;
     }
   }
@@ -279,31 +271,42 @@ async function unlockAudio() {
     return false;
   }
 
-  console.log(`AudioContext state before resume: ${context.state}`);
+  console.log("AudioContext state before resume:", context.state);
 
   try {
     if (context.state === "suspended") {
       await context.resume();
     }
 
-    console.log(`AudioContext state after resume: ${context.state}`);
+    console.log("AudioContext state after resume:", context.state);
+    audioUnlocked = context.state === "running";
+    console.log("Audio unlocked:", audioUnlocked);
+    logAudioDebug("unlockAudio");
 
-    if (context.state === "running") {
-      audioUnlocked = true;
-      console.log("Audio unlocked");
-      console.log(`AudioContext state: ${context.state}`);
+    if (audioUnlocked) {
       updateMusicForGameState();
       return true;
     }
 
-    audioUnlocked = false;
     console.warn(`AudioContext state: ${context.state}`);
     return false;
   } catch (error) {
     audioUnlocked = false;
+    console.log("Audio unlocked:", false);
     console.warn(`Audio play failed: ${error}`);
     return false;
   }
+}
+
+function logAudioDebug(source) {
+  console.log("Audio debug", {
+    source,
+    state: audioContext ? audioContext.state : "unavailable",
+    muted: audioMuted,
+    unlocked: audioUnlocked,
+    masterVolume: audioVolume,
+    lastSoundPlayed
+  });
 }
 
 function setVolume(value) {
@@ -326,6 +329,7 @@ function setAudioMuted(nextMuted) {
   saveAudioMutedPreference();
   syncMuteButton();
   console.log(audioMuted ? "Audio muted" : "Audio unmuted");
+  logAudioDebug("toggleMute");
 
   if (masterGain) {
     masterGain.gain.setTargetAtTime(audioMuted ? 0 : audioVolume, audioContext.currentTime, 0.02);
@@ -406,6 +410,43 @@ function playTone(frequency, duration, type = "sine", volume = 0.18, toFrequency
   }
 }
 
+function playSequence(notes) {
+  if (!Array.isArray(notes) || notes.length === 0 || !GameLogic.isAudioPlaybackReady({
+    muted: audioMuted,
+    unlocked: audioUnlocked,
+    context: audioContext,
+    gain: sfxGain
+  })) {
+    return false;
+  }
+
+  let delayMs = 0;
+  let didPlay = false;
+
+  notes.forEach((note, index) => {
+    const frequency = Number(note.frequency);
+    const duration = Math.max(0.03, Number(note.duration) || 0.16);
+    const gap = Math.max(0, Number(note.gap) || 0.04);
+    const playNote = () => playTone(
+      frequency,
+      duration,
+      note.type || "sine",
+      Number.isFinite(Number(note.volume)) ? Number(note.volume) : 0.2,
+      note.toFrequency || null
+    );
+
+    if (index === 0) {
+      didPlay = playNote();
+    } else {
+      setTimeout(playNote, delayMs);
+    }
+
+    delayMs += (duration + gap) * 1000;
+  });
+
+  return didPlay;
+}
+
 function playNoise(duration, options = {}) {
   if (!GameLogic.isAudioPlaybackReady({
     muted: audioMuted,
@@ -468,46 +509,55 @@ function playSound(name) {
   }
 
   lastSoundTimes[name] = now;
+  lastSoundPlayed = name;
   console.log(`Playing sound: ${name}`);
+  logAudioDebug("playSound");
 
   if (name === "coin") {
-    playTone(880, 0.08, "sine", 0.14, 1320);
-    playTone(1320, 0.09, "sine", 0.1);
+    playTone(880, 0.08, "sine", 0.28, 1320);
+    playTone(1320, 0.09, "sine", 0.22);
   } else if (name === "heart") {
-    playTone(440, 0.14, "sine", 0.08, 660);
+    playTone(440, 0.16, "sine", 0.2, 660);
   } else if (name === "shield") {
-    playTone(880, 0.08, "triangle", 0.1);
-    setTimeout(() => playTone(1174, 0.12, "triangle", 0.09), 75);
-  } else if (name === "enemyHit") {
-    playTone(190, 0.1, "square", 0.09, 130);
+    playTone(880, 0.08, "triangle", 0.22);
+    setTimeout(() => playTone(1174, 0.12, "triangle", 0.2), 75);
+  } else if (name === "hit" || name === "enemyHit") {
+    playTone(190, 0.1, "square", 0.2, 130);
   } else if (name === "hurt") {
     playTone(220, 0.22, "sawtooth", 0.12, 110);
   } else if (name === "dash" || name === "sword") {
-    playNoise(0.12, { volume: 0.06 });
-    playTone(420, 0.09, "triangle", 0.08, 760);
+    playNoise(0.12, { volume: 0.1 });
+    playTone(420, 0.09, "triangle", 0.18, 760);
   } else if (name === "slash") {
     playNoise(0.08, { volume: 0.06 });
     playTone(520, 0.08, "triangle", 0.08, 300);
   } else if (name === "gun") {
     playNoise(0.1, { volume: 0.09 });
     playTone(130, 0.08, "square", 0.08, 80);
-  } else if (name === "enemyDefeated") {
-    playTone(520, 0.08, "sine", 0.1);
-    setTimeout(() => playTone(780, 0.12, "sine", 0.1), 70);
+  } else if (name === "enemyDefeat" || name === "enemyDefeated") {
+    playTone(520, 0.18, "triangle", 0.22, 220);
   } else if (name === "combo") {
     playTone(700, 0.06, "triangle", 0.08, 940);
     setTimeout(() => playTone(1040, 0.08, "sine", 0.07), 55);
   } else if (name === "weakness") {
     playTone(620, 0.06, "square", 0.08, 880);
     setTimeout(() => playTone(1240, 0.1, "sine", 0.08), 60);
-  } else if (name === "rareTreasure") {
-    [784, 1046, 1318].forEach((frequency, index) => {
-      setTimeout(() => playTone(frequency, 0.13, "sine", 0.09), index * 70);
-    });
+  } else if (name === "rareDrop" || name === "rareTreasure") {
+    playSequence([784, 1046, 1318].map((frequency) => ({
+      frequency,
+      duration: 0.13,
+      gap: 0.02,
+      type: "sine",
+      volume: 0.2
+    })));
   } else if (name === "victory") {
-    [523, 659, 784].forEach((frequency, index) => {
-      setTimeout(() => playTone(frequency, 0.18, "sine", 0.11), index * 110);
-    });
+    playSequence([523, 659, 784].map((frequency) => ({
+      frequency,
+      duration: 0.18,
+      gap: 0.04,
+      type: "sine",
+      volume: 0.22
+    })));
   } else if (name === "bossWarning") {
     playTone(170, 0.12, "triangle", 0.1);
     setTimeout(() => playTone(130, 0.14, "triangle", 0.1), 130);
@@ -526,7 +576,7 @@ function playSound(name) {
     playTone(740, 0.09, "sine", 0.1);
     setTimeout(() => playTone(1046, 0.13, "sine", 0.1), 90);
   } else if (name === "wrongAnswer" || name === "routeWrong") {
-    playTone(260, 0.12, "sawtooth", 0.1, 160);
+    playTone(260, 0.12, "sine", 0.2, 160);
   }
 
   return true;
@@ -537,7 +587,7 @@ function playPickupSound(pickupType = "coin") {
 }
 
 function playHitSound() {
-  return playSound("enemyHit");
+  return playSound("hit");
 }
 
 function playShieldSound() {
@@ -553,7 +603,7 @@ function playVictorySound() {
 }
 
 function playRareDropSound() {
-  return playSound("rareTreasure");
+  return playSound("rareDrop");
 }
 
 function playErrorSound() {
@@ -580,9 +630,15 @@ async function testSound() {
   }
 
   console.log("Playing test sound");
-  const didPlay = playTone(660, 0.16, "sine", 0.28);
-  setTimeout(() => playTone(880, 0.16, "sine", 0.28), 120);
-  setTimeout(() => playTone(1100, 0.2, "sine", 0.28), 240);
+  lastSoundPlayed = "testSound";
+  const didPlay = playSequence([440, 660, 880].map((frequency) => ({
+    frequency,
+    duration: 0.22,
+    gap: 0.07,
+    type: "sine",
+    volume: 0.45
+  })));
+  logAudioDebug("testSound");
 
   if (didPlay) {
     showToast("Sound test triggered");
@@ -711,6 +767,7 @@ const AudioManager = {
   initAudio,
   unlockAudio,
   playTone,
+  playSequence,
   playSound,
   playPickupSound,
   playHitSound,
@@ -4022,7 +4079,7 @@ function defeatEnemy(enemy) {
   enemy.defeated = true;
   enemy.element.classList.add("defeated");
   enemy.element.classList.remove("warning", "chasing");
-  AudioManager.playSound("enemyDefeated");
+  AudioManager.playSound("enemyDefeat");
   showFloatingText("Defeated!", enemy.x - 4, enemy.y - 14, "defeat");
 
   if (!enemy.rewarded) {
